@@ -1,0 +1,167 @@
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../auth/AuthContext'
+import { useLang } from '../lib/i18n'
+import { Modal, Field, Loading, Empty } from '../components/ui'
+import { exportCsv } from '../lib/csv'
+
+export default function Students() {
+  const { profile } = useAuth()
+  const { t } = useLang()
+  const nav = useNavigate()
+  const [rows, setRows] = useState(null)
+  const [q, setQ] = useState('')
+  const [add, setAdd] = useState(false)
+
+  useEffect(() => { load() }, [])
+  async function load() {
+    let query = supabase.from('students')
+      .select('*, agency:agencies(name), agent:profiles!students_main_agent_id_fkey(full_name)')
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false })
+    if (q) query = query.or(`full_name.ilike.%${q}%,ref.ilike.%${q}%,passport_number.ilike.%${q}%`)
+    const { data } = await query
+    setRows(data ?? [])
+  }
+
+  return (
+    <>
+      <div className="topbar">
+        <h1 className="page">{t('students')}</h1>
+        <div className="row">
+          <input placeholder={t('search') + '…'} value={q} style={{ width: 220 }}
+            onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} />
+          <button className="btn ghost" onClick={load}>{t('filter')}</button>
+          <button className="btn ghost" onClick={() => exportCsv('etudiants', 'students', rows ?? [], [
+            { label: 'Ref', get: (s) => s.ref },
+            { label: 'Nom', get: (s) => s.full_name },
+            { label: 'Passeport', get: (s) => s.passport_number },
+            { label: 'ExpPasseport', get: (s) => s.passport_expiry_date },
+            { label: 'Agence', get: (s) => s.agency?.name },
+            { label: 'Agent', get: (s) => s.agent?.full_name },
+          ])}>⬇ CSV</button>
+          {['agent','director','super_admin'].includes(profile.role) &&
+            <button className="btn primary" onClick={() => setAdd(true)}>+ {t('addStudent')}</button>}
+        </div>
+      </div>
+
+      {!rows ? <Loading /> : rows.length === 0 ? <Empty msg={t('noData')} /> : (
+        <div className="tablewrap"><table className="tbl">
+          <thead><tr>
+            <th>Réf.</th><th>{t('fullName')}</th><th>Passeport</th><th>{t('agency')}</th>
+            <th>Agent</th><th>Exp. passeport</th>
+          </tr></thead>
+          <tbody>{rows.map((s) => (
+            <tr key={s.id} className="clickable" onClick={() => nav(`/students/${s.id}`)}>
+              <td><strong>{s.ref}</strong></td>
+              <td>{s.full_name}</td>
+              <td>{s.passport_number || '—'}</td>
+              <td>{s.agency?.name}</td>
+              <td>{s.agent?.full_name ?? '—'}</td>
+              <td>{passportWarn(s.passport_expiry_date)}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+      )}
+
+      {add && <AddStudent onClose={() => setAdd(false)} onSaved={() => { setAdd(false); load() }} />}
+    </>
+  )
+}
+
+function passportWarn(d) {
+  if (!d) return <span className="hint">—</span>
+  const days = (new Date(d) - new Date()) / 86400000
+  if (days < 0) return <span className="badge red">expiré</span>
+  if (days < 180) return <span className="badge orange">{d}</span>
+  return d
+}
+
+// Enrollment form — spec §5. Agreement signed IN AGENCY only.
+function AddStudent({ onClose, onSaved }) {
+  const { profile } = useAuth()
+  async function submit(e) {
+    e.preventDefault()
+    const f = Object.fromEntries(new FormData(e.target))
+    const payload = {
+      full_name: f.full_name,
+      date_of_birth: f.date_of_birth || null,
+      place_of_birth: f.place_of_birth || null,
+      cin_number: f.cin_number || null,
+      passport_number: f.passport_number || null,
+      passport_expiry_date: f.passport_expiry_date || null,
+      email: f.email || null,
+      phone: f.phone || null,
+      address: f.address || null,
+      preferred_language: f.preferred_language,
+      academic_background: f.academic_background || null,
+      language_level: f.language_level || null,
+      visa_refusal_history: f.visa_refusal_history || null,
+      agreement_signed_at: f.agreement_signed_at || null,
+      privacy_consent_at: new Date().toISOString(),
+      agency_id: profile.role === 'super_admin' ? f.agency_id : profile.agency_id,
+      main_agent_id: profile.role === 'agent' ? profile.id : (f.main_agent_id || null),
+      created_by: profile.id,
+    }
+    const { error } = await supabase.from('students').insert(payload)
+    if (error) return alert(error.message)
+    onSaved()
+  }
+  return (
+    <Modal title={t('addStudent')} onClose={onClose} wide>
+      <form onSubmit={submit}>
+        <Field label={t('fullName') + ' *'}><input name="full_name" required /></Field>
+        <div className="grid c2">
+          <Field label="Date de naissance"><input type="date" name="date_of_birth" /></Field>
+          <Field label="Lieu de naissance"><input name="place_of_birth" /></Field>
+          <Field label="CIN"><input name="cin_number" /></Field>
+          <Field label="N° passeport"><input name="passport_number" /></Field>
+          <Field label="Expiration passeport"><input type="date" name="passport_expiry_date" /></Field>
+          <Field label={t('language')}>
+            <select name="preferred_language" defaultValue="fr">
+              <option value="fr">Français</option><option value="en">English</option><option value="ar">العربية</option>
+            </select>
+          </Field>
+        </div>
+        <div className="grid c2">
+          <Field label="Email"><input type="email" name="email" /></Field>
+          <Field label="Téléphone"><input name="phone" /></Field>
+        </div>
+        <Field label="Adresse"><input name="address" /></Field>
+        <div className="grid c2">
+          <Field label="Parcours académique"><input name="academic_background" /></Field>
+          <Field label="Niveau de langue"><input name="language_level" placeholder="ex: B2 anglais" /></Field>
+        </div>
+        <Field label="Antécédents de refus de visa (le cas échéant)"><textarea name="visa_refusal_history" rows={2} /></Field>
+        <div className="grid c2">
+          <Field label="Convention signée en agence — date"><input type="date" name="agreement_signed_at" /></Field>
+        </div>
+        <p className="hint">Le consentement privé est enregistré automatiquement à la création.
+          La convention de service est signée uniquement en agence.</p>
+        <SuperAdminAgencyPicker />
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn primary">{t('save')}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function SuperAdminAgencyPicker() {
+  const { profile } = useAuth()
+  const [agencies, setAgencies] = useState([])
+  const isSA = profile.role === 'super_admin'
+  useEffect(() => {
+    if (isSA) supabase.from('agencies').select('id,name').eq('is_active', true).then(({ data }) => setAgencies(data ?? []))
+  }, [isSA])
+  if (!isSA) return null
+  return (
+    <Field label={t('agency') + ' *'}>
+      <select name="agency_id" required>
+        {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+      </select>
+    </Field>
+  )
+}
