@@ -79,7 +79,7 @@ begin
     for it in select * from jsonb_array_elements(items) loop
       insert into document_templates (
         template_id, name_fr, name_en, is_required,
-        translation_required, legalisation_required, legalisation_mode, sort_order
+        translation_required, legalisation_required, legalisation_mode
       ) values (
         tpl, it->>0, it->>1, (it->>2)::boolean,
         (it->>3)::boolean, (it->>4)::boolean, it->>5
