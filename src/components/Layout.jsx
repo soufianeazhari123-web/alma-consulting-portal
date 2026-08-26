@@ -27,7 +27,7 @@ export default function Layout({ portal = false }) {
         { to: '/cases', label: t('applications'), show: true },
         { to: '/review-queue', label: t('reviewQueue'), show: isSA },
         { to: '/tasks', label: t('tasks'), show: true },
-        { to: '/calendar', label: 'Calendrier', show: true },
+        { to: '/calendar', label: t('calendar'), show: true },
         { to: '/payments', label: t('payments'), show: true },
         { to: '/reports', label: t('reports'), show: isSA || isDir },
         { to: '/messages', label: t('messages'), show: true },
@@ -42,8 +42,8 @@ export default function Layout({ portal = false }) {
     <div className="app">
       <aside className={`sidebar ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
         <div className="brand">
-          <div className="mark">ALMA CONSULTING</div>
-          <div className="sub">{portal ? 'PORTAIL ÉTUDIANT' : 'PLATEFORME INTERNE'}</div>
+          <div className="mark">{t('appName')}</div>
+          <div className="sub">{portal ? t('portalTag') : t('internalTag')}</div>
         </div>
         <nav className="nav">
           {links.filter(l => l.show !== false).map((l, i) =>
@@ -66,7 +66,7 @@ export default function Layout({ portal = false }) {
             const order = ['fr', 'en', 'ar']
             setLang(order[(order.indexOf(lang) + 1) % order.length])
           }}>
-            {lang.toUpperCase()}
+            {lang === 'fr' ? 'EN' : lang === 'en' ? 'AR' : 'FR'}
           </button>
         </div>
       </aside>

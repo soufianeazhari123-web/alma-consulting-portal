@@ -13,7 +13,6 @@ export default function Staff() {
   const [add, setAdd] = useState(false)
   const [result, setResult] = useState(null)
   const [err, setErr] = useState(null)
-
   useEffect(() => { load() }, [])
   async function load() {
     let q = supabase.from('profiles')
@@ -37,14 +36,14 @@ export default function Staff() {
       const r = await callAdminFn('invite_staff', f)
       setResult(r); setAdd(false); load()
     } catch (ex) {
-      setErr(ex.message === 'email_exists' ? 'Cet email existe déjà.'
-        : ex.message === 'wrong_agency' ? 'Agence non autorisée.'
+      setErr(ex.message === 'email_exists' ? t('emailTaken')
+        : ex.message === 'wrong_agency' ? t('wrongAgency')
         : ex.message)
     }
   }
 
   async function toggle(row) {
-    if (!confirm(`${row.is_active ? 'Désactiver' : 'Réactiver'} ${row.full_name} ?`)) return
+    if (!confirm(`${row.is_active ? t('deactivateQ') : t('reactivateQ')} ${row.full_name} ?`)) return
     try {
       await callAdminFn('set_active', { profile_id: row.id, active: !row.is_active })
       load()
@@ -54,7 +53,7 @@ export default function Staff() {
   async function resetLink(row) {
     try {
       const r = await callAdminFn('reset_link', { profile_id: row.id })
-      prompt('Lien de réinitialisation (à remettre en main propre) :', r.reset_link)
+      prompt(t('resetPwdTitle'), r.reset_link)
     } catch (ex) { alert(ex.message) }
   }
 
@@ -65,9 +64,9 @@ export default function Staff() {
   return (
     <>
       <div className="topbar">
-        <h1 className="page">Équipe</h1>
+        <h1 className="page">{t('team')}</h1>
         {(isSA || profile.role === 'director') &&
-          <button className="btn primary" onClick={() => { setErr(null); setAdd(true) }}>+ {t('addStaff')}</button>}
+          <button className="btn primary" onClick={() => { setErr(null); setAdd(true) }}>{t('addMember')}</button>}
       </div>
 
       {rows.length === 0 ? <Empty msg={t('noData')} /> : (
@@ -101,8 +100,8 @@ export default function Staff() {
         <Modal title={t('addStaff')} onClose={() => { setAdd(false); setResult(null) }}>
           {result ? (
             <>
-              <p><strong>{result.staff_code}</strong> créé.</p>
-              <p className="hint">Mot de passe temporaire (à communiquer en agence, une seule fois) :</p>
+              <p><strong>{result.staff_code}</strong></p>
+              <p className="hint">{t('tempPasswordOnce')}</p>
               <p><code style={{ fontSize: 16 }}>{result.temp_password}</code></p>
               <button className="btn primary" onClick={() => setResult(null)}>{t('close')}</button>
             </>

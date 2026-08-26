@@ -19,7 +19,7 @@ export default function Setup() {
     e.preventDefault()
     setErr(null); setBusy(true)
     try {
-      if (password.length < 12) throw new Error('Le mot de passe doit contenir au moins 12 caractères.')
+      if (password.length < 12) throw new Error(t('pwMin12'))
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -36,7 +36,7 @@ export default function Setup() {
       const { data: prof } = await supabase.from('profiles')
         .select('role, staff_code, is_active').eq('id', data.user.id).single()
       if (!prof || prof.role !== 'super_admin') {
-        throw new Error('Un compte propriétaire existe déjà ou la création a échoué.')
+        throw new Error(t('ownerExistsErr'))
       }
       setOk(true)
     } catch (ex) {
@@ -56,9 +56,7 @@ export default function Setup() {
         {ok ? (
           <>
             <p className="badge green">
-              {needConfirm
-                ? 'Compte créé. Vérifiez votre boîte mail et confirmez votre adresse, puis connectez-vous — vous serez ALMA-0001.'
-                : 'Compte ALMA-0001 créé.'}
+              {needConfirm ? t('ownerCreatedConfirm') : t('ownerCreated')}
             </p>
             <p><Link to="/login">→ {t('login')}</Link></p>
           </>

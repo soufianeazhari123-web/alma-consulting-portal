@@ -31,25 +31,27 @@ export default function StudentDetail() {
   async function invitePortal() {
     try {
       const r = await callAdminFn('invite_student', { student_id: id, email: student.email })
-      setPortalMsg(`Accès portail créé. Mot de passe temporaire : ${r.temp_password}`)
+      setPortalMsg(`${t('portalCreated')} ${r.temp_password}`)
     } catch (ex) {
-      setPortalMsg(ex.message === 'email_exists' ? 'Cet email a déjà un compte.'
-        : ex.message === 'portal_account_exists' ? 'Le portail est déjà actif pour cet étudiant.' : ex.message)
+      setPortalMsg(
+        ex.message === 'email_exists' ? t('emailTaken')
+        : ex.message === 'portal_account_exists' ? t('portalExists')
+        : ex.message === 'wrong_agency' ? t('wrongAgency')
+        : ex.message)
     }
   }
 
   if (!student) return <Loading />
-  const paid = invoices.length * 0 // computed below from verified payments instead
 
   return (
     <>
       <div className="topbar">
         <div>
           <h1 className="page">{student.full_name}</h1>
-          <p className="hint">{student.ref} · {student.agency?.name} · Agent : {student.agent?.full_name ?? '—'}</p>
+          <p className="hint">{student.ref} · {student.agency?.name} · {t('agentCol')} : {student.agent?.full_name ?? '—'}</p>
         </div>
         <div className="row">
-          <button className="btn ghost" onClick={invitePortal}>🔑 Activer le portail</button>
+          <button className="btn ghost" onClick={invitePortal}>{t('activatePortal')}</button>
           <button className="btn primary" onClick={() => setNewCase(true)}>+ {t('newCase')}</button>
         </div>
       </div>
@@ -58,28 +60,28 @@ export default function StudentDetail() {
 
       <div className="grid c2">
         <div className="card">
-          <h2 className="section">Identité</h2>
-          <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
-            <dt className="hint">Né(e) le</dt><dd>{student.date_of_birth ?? '—'} à {student.place_of_birth ?? '—'}</dd>
-            <dt className="hint">CIN</dt><dd>{student.cin_number ?? '—'}</dd>
-            <dt className="hint">Passeport</dt><dd>{student.passport_number ?? '—'} (exp. {student.passport_expiry_date ?? '—'})</dd>
-            <dt className="hint">Contact</dt><dd>{student.email ?? '—'}<br />{student.phone ?? '—'}</dd>
-            <dt className="hint">Niveau de langue</dt><dd>{student.language_level ?? '—'}</dd>
-            <dt className="hint">Convention signée</dt><dd>
+          <h2 className="section">{t('identity')}</h2>
+          <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 12px' }}>
+            <dt className="hint">{t('bornOn')}</dt><dd>{student.date_of_birth ?? '—'} {student.place_of_birth ? `· ${student.place_of_birth}` : ''}</dd>
+            <dt className="hint">{t('cin')}</dt><dd>{student.cin_number ?? '—'}</dd>
+            <dt className="hint">{t('passportNum')}</dt><dd>{student.passport_number ?? '—'} ({t('passportExp')}: {student.passport_expiry_date ?? '—'})</dd>
+            <dt className="hint">{t('contact')}</dt><dd>{student.email ?? '—'}<br />{student.phone ?? '—'}</dd>
+            <dt className="hint">{t('langLevel')}</dt><dd>{student.language_level ?? '—'}</dd>
+            <dt className="hint">{t('agreementSigned')}</dt><dd>
               {student.agreement_signed_at
-                ? `✓ en agence le ${student.agreement_signed_at}`
-                : <span className="badge orange">non signée</span>}
+                ? `${t('signedInAgencyOn')} ${student.agreement_signed_at}`
+                : <span className="badge orange">{t('notSigned')}</span>}
             </dd>
           </dl>
         </div>
         <FinancialCard studentId={id} />
       </div>
 
-      <h2 className="section">{t('applications')} ({cases.length}) — chaque dossier est indépendant</h2>
+      <h2 className="section">{t('applications')} ({cases.length}) — {t('appsIndependent')}</h2>
       {cases.length === 0 ? <p className="hint">{t('noData')}</p> : (
         <div className="tablewrap"><table className="tbl">
           <thead><tr>
-            <th>{t('caseRef')}</th><th>Pays</th><th>Service</th><th>{t('university')}</th>
+            <th>{t('ref')}</th><th>{t('country')}</th><th>{t('service')}</th><th>{t('university')}</th>
             <th>{t('deadline')}</th><th>{t('stage')}</th>
           </tr></thead>
           <tbody>{cases.map((c) => (
@@ -101,6 +103,7 @@ export default function StudentDetail() {
 }
 
 function FinancialCard({ studentId }) {
+  const { t } = useLang()
   const [rows, setRows] = useState(null)
   useEffect(() => {
     Promise.all([
@@ -115,11 +118,11 @@ function FinancialCard({ studentId }) {
   if (!rows) return null
   return (
     <div className="card">
-      <h2 className="section">Finances</h2>
+      <h2 className="section">{t('finances')}</h2>
       <div className="grid c3">
-        <div className="stat"><div className="k">Facturé</div><div className="v" style={{fontSize:18}}>{rows.invoiced.toLocaleString()} MAD</div></div>
-        <div className="stat"><div className="k">Encaissé (vérifié)</div><div className="v" style={{fontSize:18}}>{rows.collected.toLocaleString()} MAD</div></div>
-        <div className="stat"><div className="k">Solde</div><div className="v" style={{fontSize:18}}>{(rows.invoiced - rows.collected).toLocaleString()} MAD</div></div>
+        <div className="stat"><div className="k">{t('invoiced')}</div><div className="v" style={{fontSize:18}}>{rows.invoiced.toLocaleString()} MAD</div></div>
+        <div className="stat"><div className="k">{t('collectedVerified')}</div><div className="v" style={{fontSize:18}}>{rows.collected.toLocaleString()} MAD</div></div>
+        <div className="stat"><div className="k">{t('balance')}</div><div className="v" style={{fontSize:18}}>{(rows.invoiced - rows.collected).toLocaleString()} MAD</div></div>
       </div>
     </div>
   )

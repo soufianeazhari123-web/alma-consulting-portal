@@ -30,7 +30,7 @@ export default function Students() {
       <div className="topbar">
         <h1 className="page">{t('students')}</h1>
         <div className="row">
-          <input placeholder={t('search') + '…'} value={q} style={{ width: 220 }}
+          <input placeholder={t('searchPh')} value={q} style={{ width: 220 }}
             onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} />
           <button className="btn ghost" onClick={load}>{t('filter')}</button>
           <button className="btn ghost" onClick={() => exportCsv('etudiants', 'students', rows ?? [], [
@@ -49,8 +49,8 @@ export default function Students() {
       {!rows ? <Loading /> : rows.length === 0 ? <Empty msg={t('noData')} /> : (
         <div className="tablewrap"><table className="tbl">
           <thead><tr>
-            <th>Réf.</th><th>{t('fullName')}</th><th>Passeport</th><th>{t('agency')}</th>
-            <th>Agent</th><th>Exp. passeport</th>
+            <th>{t('ref')}</th><th>{t('fullName')}</th><th>{t('passportNum')}</th><th>{t('agency')}</th>
+            <th>{t('agentCol')}</th><th>{t('passportExp')}</th>
           </tr></thead>
           <tbody>{rows.map((s) => (
             <tr key={s.id} className="clickable" onClick={() => nav(`/students/${s.id}`)}>
@@ -59,7 +59,7 @@ export default function Students() {
               <td>{s.passport_number || '—'}</td>
               <td>{s.agency?.name}</td>
               <td>{s.agent?.full_name ?? '—'}</td>
-              <td>{passportWarn(s.passport_expiry_date)}</td>
+              <td>{passportWarn(s.passport_expiry_date, t)}</td>
             </tr>
           ))}</tbody>
         </table></div>
@@ -70,10 +70,10 @@ export default function Students() {
   )
 }
 
-function passportWarn(d) {
+function passportWarn(d, t) {
   if (!d) return <span className="hint">—</span>
   const days = (new Date(d) - new Date()) / 86400000
-  if (days < 0) return <span className="badge red">expiré</span>
+  if (days < 0) return <span className="badge red">{t('passportExpired')}</span>
   if (days < 180) return <span className="badge orange">{d}</span>
   return d
 }
@@ -81,6 +81,7 @@ function passportWarn(d) {
 // Enrollment form — spec §5. Agreement signed IN AGENCY only.
 function AddStudent({ onClose, onSaved }) {
   const { profile } = useAuth()
+  const { t } = useLang()
   async function submit(e) {
     e.preventDefault()
     const f = Object.fromEntries(new FormData(e.target))
@@ -109,15 +110,15 @@ function AddStudent({ onClose, onSaved }) {
     onSaved()
   }
   return (
-    <Modal title={t('addStudent')} onClose={onClose} wide>
+    <Modal title={t('newStudent')} onClose={onClose} wide>
       <form onSubmit={submit}>
-        <Field label={t('fullName') + ' *'}><input name="full_name" required /></Field>
+        <Field label={`${t('fullName')} *`}><input name="full_name" required /></Field>
         <div className="grid c2">
-          <Field label="Date de naissance"><input type="date" name="date_of_birth" /></Field>
-          <Field label="Lieu de naissance"><input name="place_of_birth" /></Field>
-          <Field label="CIN"><input name="cin_number" /></Field>
-          <Field label="N° passeport"><input name="passport_number" /></Field>
-          <Field label="Expiration passeport"><input type="date" name="passport_expiry_date" /></Field>
+          <Field label={t('dob')}><input type="date" name="date_of_birth" /></Field>
+          <Field label={t('pob')}><input name="place_of_birth" /></Field>
+          <Field label={t('cin')}><input name="cin_number" /></Field>
+          <Field label={t('passportNum')}><input name="passport_number" /></Field>
+          <Field label={t('passportExp')}><input type="date" name="passport_expiry_date" /></Field>
           <Field label={t('language')}>
             <select name="preferred_language" defaultValue="fr">
               <option value="fr">Français</option><option value="en">English</option><option value="ar">العربية</option>
@@ -125,20 +126,19 @@ function AddStudent({ onClose, onSaved }) {
           </Field>
         </div>
         <div className="grid c2">
-          <Field label="Email"><input type="email" name="email" /></Field>
-          <Field label="Téléphone"><input name="phone" /></Field>
+          <Field label={t('email')}><input type="email" name="email" /></Field>
+          <Field label={t('phone')}><input name="phone" /></Field>
         </div>
-        <Field label="Adresse"><input name="address" /></Field>
+        <Field label={t('address')}><input name="address" /></Field>
         <div className="grid c2">
-          <Field label="Parcours académique"><input name="academic_background" /></Field>
-          <Field label="Niveau de langue"><input name="language_level" placeholder="ex: B2 anglais" /></Field>
+          <Field label={t('academicBg')}><input name="academic_background" /></Field>
+          <Field label={t('langLevel')}><input name="language_level" placeholder="ex: B2 anglais" /></Field>
         </div>
-        <Field label="Antécédents de refus de visa (le cas échéant)"><textarea name="visa_refusal_history" rows={2} /></Field>
+        <Field label={t('refusalHistory')}><textarea name="visa_refusal_history" rows={2} /></Field>
         <div className="grid c2">
-          <Field label="Convention signée en agence — date"><input type="date" name="agreement_signed_at" /></Field>
+          <Field label={t('agreementDate')}><input type="date" name="agreement_signed_at" /></Field>
         </div>
-        <p className="hint">Le consentement privé est enregistré automatiquement à la création.
-          La convention de service est signée uniquement en agence.</p>
+        <p className="hint">{t('consentAutoNote')}</p>
         <SuperAdminAgencyPicker />
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
@@ -151,6 +151,7 @@ function AddStudent({ onClose, onSaved }) {
 
 function SuperAdminAgencyPicker() {
   const { profile } = useAuth()
+  const { t } = useLang()
   const [agencies, setAgencies] = useState([])
   const isSA = profile.role === 'super_admin'
   useEffect(() => {
@@ -158,7 +159,7 @@ function SuperAdminAgencyPicker() {
   }, [isSA])
   if (!isSA) return null
   return (
-    <Field label={t('agency') + ' *'}>
+    <Field label={`${t('agency')} *`}>
       <select name="agency_id" required>
         {agencies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
       </select>

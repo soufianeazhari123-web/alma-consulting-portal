@@ -7,7 +7,7 @@ import { Loading, StageBadge } from '../components/ui'
 
 export default function Dashboard() {
   const { profile } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const nav = useNavigate()
   const [stats, setStats] = useState(null)
   const [queue, setQueue] = useState([])
@@ -69,9 +69,9 @@ export default function Dashboard() {
         <div className="card stat"><div className="k">{t('students')}</div><div className="v">{stats.students}</div></div>
         <div className="card stat"><div className="k">{t('applications')}</div><div className="v">{stats.cases}</div></div>
         <div className="card stat gold"><div className="k">{t('reviewQueue')}</div><div className="v">{queue.length}</div></div>
-        <div className="card stat"><div className="k">Overdue {t('tasks').toLowerCase()}</div><div className="v">{stats.overdueTasks}</div></div>
+        <div className="card stat"><div className="k">{t('overdueTasksK')}</div><div className="v">{stats.overdueTasks}</div></div>
         <div className="card stat gold">
-          <div className="k">{t('pending_verification')} ({t('payments')})</div>
+          <div className="k">{t('pendingVerifyPay')}</div>
           <div className="v">{stats.pendingPayments} · {stats.pendingAmount.toLocaleString()} MAD</div>
         </div>
       </div>
@@ -80,7 +80,9 @@ export default function Dashboard() {
         <>
           <h2 className="section">{t('reviewQueue')} — {queue.length}</h2>
           <div className="tablewrap"><table className="tbl">
-            <thead><tr><th>{t('caseRef')}</th><th>Étudiant</th><th>{t('agency')}</th><th>Agent</th><th>Pays</th></tr></thead>
+            <thead><tr>
+              <th>{t('ref')}</th><th>{t('students')}</th><th>{t('agency')}</th><th>{t('agentCol')}</th><th>{t('country')}</th>
+            </tr></thead>
             <tbody>
               {queue.map((c) => (
                 <tr key={c.id} className="clickable" onClick={() => nav(`/cases/${c.id}`)}>
@@ -98,15 +100,15 @@ export default function Dashboard() {
 
       {kpis && kpis.length > 0 && (
         <>
-          <h2 className="section">Performance par agent</h2>
+          <h2 className="section">{t('perfByAgent')}</h2>
           <div className="grid c3">
             {kpis.map((k) => (
               <div className="card stat" key={k.name}>
                 <div className="k">{k.name}</div>
-                <div className="v" style={{ fontSize: 17 }}>{k.active} dossiers actifs</div>
+                <div className="v" style={{ fontSize: 17 }}>{k.active} {t('activeCasesN')}</div>
                 <div className="row" style={{ gap: 6, marginTop: 6 }}>
-                  <span className="badge gold">{k.ready} à réviser</span>
-                  <span className="badge orange">{k.returned} retournés</span>
+                  <span className="badge gold">{k.ready} {t('toReviewN')}</span>
+                  <span className="badge orange">{k.returned} {t('returnedN')}</span>
                 </div>
               </div>
             ))}
@@ -114,10 +116,12 @@ export default function Dashboard() {
         </>
       )}
 
-      <h2 className="section">Prochaines échéances</h2>
+      <h2 className="section">{t('nextDeadlines')}</h2>
       {stats.soonest.length === 0 ? <p className="hint">{t('noData')}</p> : (
         <div className="tablewrap"><table className="tbl">
-          <thead><tr><th>{t('caseRef')}</th><th>Étudiant</th><th>{t('country')}</th><th>{t('deadline')}</th><th>{t('stage')}</th></tr></thead>
+          <thead><tr>
+            <th>{t('ref')}</th><th>{t('students')}</th><th>{t('country')}</th><th>{t('deadline')}</th><th>{t('stage')}</th>
+          </tr></thead>
           <tbody>
             {stats.soonest.map((c) => (
               <tr key={c.id} className="clickable" onClick={() => nav(`/cases/${c.id}`)}>

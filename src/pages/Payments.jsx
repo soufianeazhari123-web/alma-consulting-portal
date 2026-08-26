@@ -37,9 +37,9 @@ export default function Payments() {
   async function verify(pay, approve) {
     let reason = null
     if (!approve) {
-      reason = prompt('Motif du rejet :') ?? ''
+      reason = prompt(t('rejectReasonPrompt')) ?? ''
       if (!reason.trim()) return
-    } else if (!confirm(`Vérifier le paiement de ${Number(pay.amount).toLocaleString()} MAD ?\nLe reçu officiel sera généré immédiatement.`)) return
+    } else if (!confirm(t('verifyConfirm'))) return
     try {
       const { data: receiptId, error } = await supabase.rpc('verify_payment', {
         p_payment: pay.id, p_approve: approve, p_reason: reason,
@@ -57,35 +57,35 @@ export default function Payments() {
         <h1>{t('payments')}</h1>
         <div className="row">
           <button className="btn ghost" onClick={() => exportCsv('paiements', 'payments', rows, [
-            { label: 'Facture', get: (p) => p.invoice?.number },
-            { label: 'Etudiant', get: (p) => p.student?.full_name },
-            { label: 'Methode', get: (p) => p.method },
-            { label: 'Montant', get: (p) => p.amount },
-            { label: 'Devise', get: (p) => p.currency },
-            { label: 'Statut', get: (p) => p.status },
-          ])}>⬇ CSV</button>
-          <button className="btn ghost" title="Génère les brouillons d'emails de rappel (7j avant + en retard), à approuver ensuite"
+            { label: t('invoiceCol'), get: (p) => p.invoice?.number },
+            { label: t('students'), get: (p) => p.student?.full_name },
+            { label: t('method'), get: (p) => p.method },
+            { label: t('amount'), get: (p) => p.amount },
+            { label: 'MAD', get: (p) => p.currency },
+            { label: t('status'), get: (p) => p.status },
+          ])}>{t('csv')}</button>
+          <button className="btn ghost" title={t('remindersHint')}
             onClick={async () => {
               try {
                 const { data: n } = await supabase.rpc('draft_installment_reminders')
-                alert(`${n ?? 0} rappel(s) préparé(s) — à valider dans Paramètres/Email avant envoi.`)
+                alert(`${n ?? 0} ${t('remindersDone')}`)
               } catch (ex) { alert(ex.message) }
-            }}>🔔 Rappels</button>
+            }}>{t('remindersBtn')}</button>
           <button className="btn primary" disabled={openInvoices.length === 0}
-            onClick={() => setAdd(true)}>+ Enregistrer un paiement</button>
+            onClick={() => setAdd(true)}>{t('recordPayment')}</button>
         </div>
       </div>
 
       <div className="tablewrap"><table className="tbl">
         <thead><tr>
-          <th>Facture</th><th>Étudiant</th><th>{t('method')}</th><th>{t('amount')}</th>
-          <th>{t('status')}</th><th>Vérifié par</th><th className="no-print"></th>
+          <th>{t('invoiceCol')}</th><th>{t('students')}</th><th>{t('method')}</th><th>{t('amount')}</th>
+          <th>{t('status')}</th><th>{t('verifiedBy')}</th><th className="no-print"></th>
         </tr></thead>
         <tbody>{rows.map((p) => (
           <tr key={p.id}>
             <td><strong>{p.invoice?.number}</strong></td>
             <td>{p.student?.full_name}</td>
-            <td>{p.method === 'cash' ? '💵 Espèces' : '🏦 Virement'}</td>
+            <td>{p.method === 'cash' ? t('cashLabel') : t('transferLabel')}</td>
             <td>{Number(p.amount).toLocaleString()} MAD</td>
             <td><StatusBadge s={p.status} /></td>
             <td className="hint">{p.verified_by && p.status === 'verified' ? '✓' : p.rejection_reason || ''}</td>
@@ -95,7 +95,7 @@ export default function Payments() {
                 <button className="btn danger sm" onClick={() => verify(p, false)}>✕</button>
               </>}
               {p.status === 'verified' &&
-                <button className="btn ghost sm" onClick={() => nav(`/invoices/${p.receipt_id}`)}>Reçu →</button>}
+                <button className="btn ghost sm" onClick={() => nav(`/invoices/${p.receipt_id}`)}>{t('receiptLink')}</button>}
             </td>
           </tr>
         ))}</tbody>
@@ -107,6 +107,7 @@ export default function Payments() {
 }
 
 function RecordPayment({ invoices, onClose }) {
+  const { t, lang } = useLang()
   const [invoiceId, setInvoiceId] = useState(invoices[0]?.id ?? '')
   const inv = invoices.find((i) => i.id === invoiceId)
 
@@ -122,46 +123,46 @@ function RecordPayment({ invoices, onClose }) {
         p_transfer_ref: f.transfer_ref || null,
         p_proof_path: null,
       })
-      alert('Paiement enregistré — en attente de vérification par le directeur.')
+      alert(t('recordedPending'))
       onClose()
     } catch (ex) {
       const msgs = {
-        FULL_AMOUNT_REQUIRED: 'Le montant doit couvrir exactement le solde restant de la facture (pas de paiement partiel).',
-        PAYMENT_ALREADY_PENDING: 'Un paiement est déjà en attente de vérification pour cette facture.',
+        FULL_AMOUNT_REQUIRED: t('fullAmountRequired'),
+        PAYMENT_ALREADY_PENDING: t('alreadyPending'),
       }
       alert(msgs[ex.message] ?? ex.message)
     }
   }
 
   return (
-    <Modal title="Enregistrer un paiement" onClose={onClose}>
+    <Modal title={t('recordPaymentTitle')} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Facture *">
+        <Field label={`${t('invoiceCol')} *`}>
           <select value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)} required>
             {invoices.map((i) => (
               <option key={i.id} value={i.id}>
-                {i.number} — tranche {i.installment_no} ({Number(i.amount).toLocaleString()} MAD)
+                {i.number} — {t('installmentOf')} {i.installment_no} ({Number(i.amount).toLocaleString()} MAD)
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Moyen *">
+        <Field label={`${t('method')} *`}>
           <select name="method" required defaultValue="bank_transfer">
-            <option value="cash">Espèces à l’agence</option>
-            <option value="bank_transfer">Virement bancaire</option>
+            <option value="cash">{t('cashOption')}</option>
+            <option value="bank_transfer">{t('transferOption')}</option>
           </select>
         </Field>
-        <Field label="Montant *">
+        <Field label={t('openBalanceExact')}>
           <input name="amount" type="number" step="0.01" min="1"
             max={inv ? Number(inv.amount) : undefined} required defaultValue={inv ? Number(inv.amount) : ''} />
         </Field>
-        <Field label="Référence de virement (si applicable)">
-          <input name="transfer_ref" placeholder="N° de transaction bancaire" />
+        <Field label={t('transferRef')}>
+          <input name="transfer_ref" placeholder={t('transferRefPh')} />
         </Field>
-        <p className="hint">{`⚠ Le reçu officiel n’est généré qu’après vérification par le directeur de l’agence.`}</p>
+        <p className="hint">{t('receiptAfterVerify')}</p>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className="btn ghost" onClick={onClose}>Annuler</button>
-          <button className="btn primary">Enregistrer</button>
+          <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn primary">{t('save')}</button>
         </div>
       </form>
     </Modal>

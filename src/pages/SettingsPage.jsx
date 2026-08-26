@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
+import { useLang } from '../lib/i18n'
 import { Field } from '../components/ui'
 
 // Company legal details + installment rules — Super Admin only.
 export default function SettingsPage() {
   const { profile } = useAuth()
+  const { t } = useLang()
   const [cfg, setCfg] = useState(null)
   const [rules, setRules] = useState([])
   const [saved, setSaved] = useState(false)
@@ -35,27 +37,30 @@ export default function SettingsPage() {
   if (!cfg) return null
   return (
     <>
-      <div className="topbar"><h1>Paramètres société</h1></div>
+      <div className="topbar"><h1>{t('companySettings')}</h1></div>
       <form onSubmit={saveSettings} className="card" style={{ maxWidth: 720 }}>
         <div className="grid c2">
-          <Field label="Raison sociale"><input name="legal_name" defaultValue={cfg.legal_name} /></Field>
-          <Field label="Ville"><input name="city" defaultValue={cfg.city} /></Field>
-          <Field label="Adresse"><input name="address_line1" defaultValue={cfg.address_line1} /></Field>
-          <Field label="Pays"><input name="country" defaultValue={cfg.country} /></Field>
-          <Field label="ICE"><input name="ice" defaultValue={cfg.ice} /></Field>
-          <Field label="IF"><input name="tax_id" defaultValue={cfg.tax_id} /></Field>
-          <Field label="RC"><input name="rc_number" defaultValue={cfg.rc_number} /></Field>
-          <Field label="Email support"><input name="support_email" defaultValue={cfg.support_email} /></Field>
-          <Field label="Téléphone"><input name="support_phone" defaultValue={cfg.support_phone} /></Field>
-          <Field label="Délai facture (jours)"><input type="number" name="invoice_due_days" defaultValue={cfg.invoice_due_days} /></Field>
+          <Field label={t('legalName')}><input name="legal_name" defaultValue={cfg.legal_name} /></Field>
+          <Field label={t('city')}><input name="city" defaultValue={cfg.city} /></Field>
+          <Field label={t('addr')}><input name="address_line1" defaultValue={cfg.address_line1} /></Field>
+          <Field label={t('country')}><input name="country" defaultValue={cfg.country} /></Field>
+          <Field label={t('ice')}><input name="ice" defaultValue={cfg.ice} /></Field>
+          <Field label={t('taxId')}><input name="tax_id" defaultValue={cfg.tax_id} /></Field>
+          <Field label={t('rcNumber')}><input name="rc_number" defaultValue={cfg.rc_number} /></Field>
+          <Field label={t('supportEmail')}><input name="support_email" defaultValue={cfg.support_email} /></Field>
+          <Field label={t('supportPhone')}><input name="support_phone" defaultValue={cfg.support_phone} /></Field>
+          <Field label={t('invoiceDueDays')}><input type="number" name="invoice_due_days" defaultValue={cfg.invoice_due_days} /></Field>
         </div>
-        <button className="btn primary">{saved ? '✓ Enregistré' : 'Enregistrer'}</button>
+        <button className="btn primary">{saved ? t('saved') : t('save')}</button>
       </form>
 
-      <h2 className="section">Déclencheurs de tranches (facturation)</h2>
+      <h2 className="section">{t('installmentTriggers')}</h2>
       <div className="card" style={{ maxWidth: 760 }}>
         <table className="tbl">
-          <thead><tr><th>#</th><th>Déclenché à l’étape</th><th>Périmètre</th><th>Montant</th><th>Libellé</th></tr></thead>
+          <thead><tr>
+            <th>#</th><th>{t('triggerStage')}</th><th>{t('scopeCol')}</th>
+            <th>{t('amount')}</th><th>{t('labelCol')}</th>
+          </tr></thead>
           <tbody>{rules.map((r) => (
             <tr key={r.id}>
               <td><strong>{r.id}</strong></td>
@@ -66,10 +71,7 @@ export default function SettingsPage() {
             </tr>
           ))}</tbody>
         </table>
-        <p className="hint" style={{ marginTop: 10 }}>
-          Rappel politique propriétaire : après un refus de visa/TRP, la 2ᵉ tentative est
-          <strong> entièrement gratuite</strong> — aucun invoice n’est émis pour les dossiers « free retake ».
-        </p>
+        <p className="hint" style={{ marginTop: 10 }}>{t('retakeNote')}</p>
       </div>
     </>
   )

@@ -11,11 +11,10 @@ const OK_MIME = ['application/pdf', 'image/jpeg', 'image/png']
 export default function CaseDetail() {
   const { id } = useParams()
   const { profile } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [kase, setKase] = useState(null)
   const [items, setItems] = useState([])
-  const [docs, setDocs] = useState({})
-      // item_id -> current doc row
+  const [docs, setDocs] = useState({}) // item_id -> current doc row
   const [readiness, setReadiness] = useState(null)
   const [history, setHistory] = useState([])
   const [busy, setBusy] = useState(false)
@@ -49,8 +48,8 @@ export default function CaseDetail() {
 
   async function upload(item, file) {
     if (!file) return
-    if (!OK_MIME.includes(file.type)) return alert('Formats acceptés : PDF, JPG, PNG.')
-    if (file.size > MAX_MB * 1024 * 1024) return alert(`Taille max : ${MAX_MB} Mo.`)
+    if (!OK_MIME.includes(file.type)) return alert(t('errPdfJpgPng'))
+    if (file.size > MAX_MB * 1024 * 1024) return alert(t('errMaxSize'))
     setBusy(true)
     try {
       const ext = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -80,8 +79,8 @@ export default function CaseDetail() {
   async function transition(stage) {
     let reason = null
     if (stage === 'changes_requested' || stage === 'withdrawn') {
-      reason = prompt('Motif / commentaire :') ?? ''
-      if (stage !== 'withdrawn' && !reason.trim()) return
+      reason = prompt(t('reasonPrompt')) ?? ''
+      if (!reason.trim()) return alert(t('reasonRequiredAlert'))
     }
     setBusy(true)
     try {
@@ -91,8 +90,8 @@ export default function CaseDetail() {
   }
 
   async function review(decision) {
-    const comment = prompt(decision === 'returned' ? 'Modifications demandées :' : 'Commentaire (optionnel) :') ?? ''
-    if (decision === 'returned' && !comment.trim()) return
+    const comment = prompt(decision === 'returned' ? t('changesPrompt') : t('commentOptional')) ?? ''
+    if (decision === 'returned' && !comment.trim()) return alert(t('reasonRequiredAlert'))
     try {
       await supabase.rpc('review_case', { p_case: id, p_decision: decision, p_comment: comment })
       await load()
@@ -121,15 +120,15 @@ export default function CaseDetail() {
             {kase.is_free_retake && <> <span className="badge gold">{t('freeRetake')}</span></>}
           </h1>
           <p className="hint">
-            {kase.student.ref} · {kase.country.name_fr} · {kase.service.label_fr}
+            {kase.student.ref} · {lang==='ar' ? kase.country.name_en : kase.country.name_fr} · {lang==='ar' ? kase.service.label_en : kase.service.label_fr}
             {kase.university ? ` · ${kase.university}` : ''}{kase.program ? ` · ${kase.program}` : ''}
           </p>
         </div>
         <div className="row">
           <StageBadge s={stage} />
           {readiness && <ReadinessMeter score={readiness.score} />}
-          <button className="btn ghost sm" onClick={refreshScore}>↻ Score</button>
-          {canPrepare && <button className="btn ghost sm" onClick={() => setEditOpen(true)}>✎ Détails</button>}
+          <button className="btn ghost sm" onClick={refreshScore}>↻</button>
+          {canPrepare && <button className="btn ghost sm" onClick={() => setEditOpen(true)}>{t('details')}</button>}
         </div>
       </div>
 
@@ -138,101 +137,96 @@ export default function CaseDetail() {
         <div className="row">
           {isAgentOwner && stage === 'draft' &&
             <button className="btn primary" disabled={busy} onClick={() => transition('documents_in_progress')}>
-              Démarrer les documents</button>}
+              {t('startDocuments')}</button>}
           {isAgentOwner && stage === 'documents_in_progress' &&
             <button className="btn primary" disabled={busy} onClick={() => transition('ready_for_review')}>
-              ✓ {t('readyForReview')}</button>}
+              {t('markReady')}</button>}
 
           {isSA && stage === 'ready_for_review' && <>
-            <button className="btn ok" disabled={busy} onClick={() => review('approved')}>✓ {t('approve')}</button>
-            <button className="btn danger" disabled={busy} onClick={() => review('returned')}>✎ {t('requestChanges')}</button>
+            <button className="btn ok" disabled={busy} onClick={() => review('approved')}>{t('approveShort')}</button>
+            <button className="btn danger" disabled={busy} onClick={() => review('returned')}>{t('requestChangesShort')}</button>
           </>}
 
-          {(isSA) && ['approved_for_submission'].includes(stage) && kase.service.key === 'university_application' &&
+          {(isSA) && stage === 'approved_for_submission' && kase.service.key === 'university_application' &&
             <button className="btn primary" disabled={busy} onClick={() => transition('submitted')}>
-              📤 Soumission externe (Super Admin)</button>}
+              {t('submitExternal')}</button>}
           {(isSA) && stage === 'approved_for_submission' && kase.service.key === 'visa_trp' &&
             <button className="btn primary" disabled={busy} onClick={() => transition('appointment_booked')}>
-              📅 Rendez-vous confirmé</button>}
+              {t('apptConfirmed')}</button>}
           {(isSA) && stage === 'appointment_booked' &&
-            <button className="btn primary" disabled={busy} onClick={() => transition('submitted')}>📤 Dossier déposé (Super Admin)</button>}
+            <button className="btn primary" disabled={busy} onClick={() => transition('submitted')}>{t('depositedSA')}</button>}
           {isSA && stage === 'submitted' && <>
             <button className="btn ok" disabled={busy} onClick={() =>
               transition(kase.service.key === 'visa_trp' ? 'biometrics_interview' : 'accepted')}>
-              {kase.service.key === 'visa_trp' ? 'Biometrics / entretien' : 'Accepté'}
+              {kase.service.key === 'visa_trp' ? t('biometricsBtn') : t('acceptedBtn')}
             </button>
-            <button className="btn ghost" disabled={busy} onClick={() => transition('additional_info_requested')}>Infos supplémentaires demandées</button>
+            <button className="btn ghost" disabled={busy} onClick={() => transition('additional_info_requested')}>{t('infoRequestedBtn')}</button>
           </>}
           {isSA && stage === 'biometrics_interview' && <>
-            <button className="btn ok" disabled={busy} onClick={() => transition('visa_approved')}>Visa approuvé</button>
-            <button className="btn danger" disabled={busy} onClick={() => transition('visa_refused')}>Visa refusé</button>
+            <button className="btn ok" disabled={busy} onClick={() => transition('visa_approved')}>{t('visaApprovedBtn')}</button>
+            <button className="btn danger" disabled={busy} onClick={() => transition('visa_refused')}>{t('visaRefusedBtn')}</button>
           </>}
 
-          {(canPrepare && stage !== 'draft' && stage !== 'ready_for_review' && !isSA) || ((isSA || isDir) && canPrepare && !['ready_for_review'].includes(stage)) ?
-            null : null}
-
           {(isSA || isDir) && !['closed','withdrawn'].includes(stage) &&
-            <button className="btn ghost sm" disabled={busy} onClick={() => transition('withdrawn')}>Clôturer (retrait)</button>}
+            <button className="btn ghost sm" disabled={busy} onClick={() => transition('withdrawn')}>{t('withdrawCase')}</button>}
           {isSA && !['closed'].includes(stage) &&
-            <button className="btn ghost sm" disabled={busy} onClick={() => transition('closed')}>Clore le dossier</button>}
+            <button className="btn ghost sm" disabled={busy} onClick={() => transition('closed')}>{t('closeCase')}</button>}
         </div>
-        {kase.review_comment && <p className="err">Dernier retour : {kase.review_comment}</p>}
+        {kase.review_comment && <p className="err">{t('lastFeedback')} {kase.review_comment}</p>}
         {['rejected','visa_refused'].includes(kase.decision_outcome) && (isSA || isDir) && (
           <p style={{ marginTop: 8 }}>
-            <button className="btn gold btn sm" onClick={() => setRetakeOpen(true)}>
-              🎁 Créer la 2ᵉ tentative gratuite (tout pays/service)
-            </button>
+            <button className="btn gold btn sm" onClick={() => setRetakeOpen(true)}>{t('retakeBtn')}</button>
           </p>
         )}
       </div>
 
       {/* Checklist */}
-      <h2 className="section">Checklist — {t('country')} : {kase.country.name_fr}</h2>
+      <h2 className="section">{t('checklist')} — {t('country')} : {lang==='ar' ? kase.country.name_en : kase.country.name_fr}</h2>
       <div className="tablewrap"><table className="tbl">
         <thead><tr>
-          <th>Document</th><th>{t('status')}</th><th>{t('translation')}</th><th>{t('legalisation')}</th>
-          <th>Fichier</th><th className="no-print">Actions</th>
+          <th>{t('document')}</th><th>{t('status')}</th><th>{t('translation')}</th><th>{t('legalisation')}</th>
+          <th>{t('file')}</th><th className="no-print">{t('actions')}</th>
         </tr></thead>
         <tbody>{items.map((it) => (
           <tr key={it.id}>
             <td>
-              <strong>{it.name_fr}</strong>{it.is_required ? <span className="badge red">req.</span> : <span className="badge gray">opt.</span>}
+              <strong>{lang==='ar' ? it.name_en : it.name_fr}</strong>{' '}
+              {it.is_required ? <span className="badge red">{t('required')}</span> : <span className="badge gray">{t('optional')}</span>}
               {it.guidance_fr && <><br /><small className="hint">{it.guidance_fr}</small></>}
             </td>
             <td><StatusBadge s={it.status} /></td>
-            <td>{it.translation_required ? 'Oui' : '—'}</td>
-            <td>{it.legalisation_required ? (it.legalisation_mode || 'oui') : '—'}</td>
+            <td>{it.translation_required ? t('yes') : t('none')}</td>
+            <td>{it.legalisation_required ? (it.legalisation_mode || '✓') : t('none')}</td>
             <td>{docs[it.id]
               ? <a href="#" onClick={(e) => { e.preventDefault(); download(docs[it.id]) }}>{docs[it.id].file_name}</a>
               : <span className="hint">—</span>}</td>
             <td className="no-print row">
               {canPrepare && <>
                 <label className="btn ghost sm" style={{ margin: 0 }}>
-                  ⬆ {t('upload')}
+                  {t('uploadBtn')}
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png" hidden
                     onChange={(e) => upload(it, e.target.files[0])} />
                 </label>
               </>}
-              {(isDir || isSA) && docs[it.id] && <>
+              {(isDir || isSA) && docs[it.id] &&
                 <select defaultValue="" className="btn ghost sm" style={{ width: 'auto' }}
-                  onChange={(e) => e.target.value && reviewItem(it, e.target.value)}>
-                  <option value="">Réviser…</option>
-                  <option value="approved">Approuver</option>
-                  <option value="changes_requested">Demander modif.</option>
-                  <option value="waived">Dispenser</option>
-                </select>
-              </>}
+                  onChange={(e) => e.target.value && reviewItem(it, e.target.value, t)}>
+                  <option value="">{t('revise')}</option>
+                  <option value="approved">{t('reviseApprove')}</option>
+                  <option value="changes_requested">{t('reviseChanges')}</option>
+                  <option value="waived">{t('reviseWaive')}</option>
+                </select>}
             </td>
           </tr>
         ))}</tbody>
       </table></div>
 
       {/* History */}
-      <h2 className="section">Historique du dossier</h2>
+      <h2 className="section">{t('caseHistory')}</h2>
       <ul className="hint" style={{ lineHeight: 1.9 }}>
         {history.map((h) => (
           <li key={h.id}>
-            {new Date(h.created_at).toLocaleString('fr-FR')} — <strong>{h.field}</strong> :
+            {new Date(h.created_at).toLocaleString(lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : 'fr-FR')} — <strong>{h.field}</strong> :
             {h.old_value} → <strong>{h.new_value}</strong>
             {h.actor_staff_code ? ` (${h.actor_staff_code})` : ''}
             {h.reason ? ` — ${h.reason}` : ''}
@@ -242,63 +236,76 @@ export default function CaseDetail() {
 
       {retakeOpen && <FreeRetakeModal source={kase} onClose={() => setRetakeOpen(false)} />}
       {editOpen && (
-        <Modal title="Modifier les détails du dossier" onClose={() => setEditOpen(false)}>
-          <form onSubmit={async (e) => {
-            e.preventDefault()
-            const f = Object.fromEntries(new FormData(e.target))
-            try {
-              await supabase.rpc('update_case_details', {
-                p_case: id,
-                p_university: f.university || null,
-                p_program: f.program || null,
-                p_study_level: f.study_level || null,
-                p_intake: f.intake || null,
-                p_intake_month: f.intake_month || null,
-                p_deadline: f.application_deadline || null,
-              })
-              setEditOpen(false); await load()
-            } catch (ex) { alert(ex.message) }
-          }}>
-            <Field label="Université / Institution"><input name="university" defaultValue={kase.university ?? ''} /></Field>
-            <div className="grid c2">
-              <Field label="Programme"><input name="program" defaultValue={kase.program ?? ''} /></Field>
-              <Field label="Niveau"><input name="study_level" defaultValue={kase.study_level ?? ''} /></Field>
-              <Field label="Rentrée (libre)"><input name="intake" defaultValue={kase.intake ?? ''} /></Field>
-              <Field label="Saison">
-                <select name="intake_month" defaultValue={kase.intake_month ?? ''}>
-                  <option value="">—</option>
-                  <option value="september">Septembre</option>
-                  <option value="february">Février</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Date limite"><input type="date" name="application_deadline" defaultValue={kase.application_deadline ?? ''} /></Field>
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button type="button" className="btn ghost" onClick={() => setEditOpen(false)}>Annuler</button>
-              <button className="btn primary">{t('save')}</button>
-            </div>
-          </form>
-        </Modal>
+        <EditDetailsModal kase={kase} onClose={() => setEditOpen(false)} onSaved={async () => { setEditOpen(false); await load() }} />
       )}
     </>
   )
 }
 
-async function reviewItem(item, status) {
-  const comment = status === 'changes_requested' ? (prompt('Modification demandée :') ?? '') : null
-  if (status === 'changes_requested' && !comment?.trim()) return
+async function reviewItem(item, status, t) {
+  let comment = null
+  if (status === 'changes_requested') {
+    comment = prompt(t('changesPrompt')) ?? ''
+    if (!comment.trim()) return
+  }
   try {
     await supabase.rpc('review_checklist_item', { p_item: item.id, p_status: status, p_comment: comment })
     window.location.reload()
   } catch (ex) { alert(ex.message) }
 }
 
+function EditDetailsModal({ kase, onClose, onSaved }) {
+  const { t } = useLang()
+  return (
+    <Modal title={t('editDetails')} onClose={onClose}>
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        const f = Object.fromEntries(new FormData(e.target))
+        try {
+          await supabase.rpc('update_case_details', {
+            p_case: kase.id,
+            p_university: f.university || null,
+            p_program: f.program || null,
+            p_study_level: f.study_level || null,
+            p_intake: f.intake || null,
+            p_intake_month: f.intake_month || null,
+            p_deadline: f.application_deadline || null,
+          })
+          alert(t('editSaved')); onSaved()
+        } catch (ex) {
+          alert(ex.message === 'CASE_FROZEN' ? t('caseFrozen') : ex.message)
+        }
+      }}>
+        <Field label={t('university')}><input name="university" defaultValue={kase.university ?? ''} /></Field>
+        <div className="grid c2">
+          <Field label={t('program')}><input name="program" defaultValue={kase.program ?? ''} /></Field>
+          <Field label={t('level')}><input name="study_level" defaultValue={kase.study_level ?? ''} /></Field>
+          <Field label={t('intakeFree')}><input name="intake" defaultValue={kase.intake ?? ''} /></Field>
+          <Field label={t('season')}>
+            <select name="intake_month" defaultValue={kase.intake_month ?? ''}>
+              <option value="">—</option>
+              <option value="september">{t('seasonSept')}</option>
+              <option value="february">{t('seasonFeb')}</option>
+            </select>
+          </Field>
+        </div>
+        <Field label={t('deadline')}><input type="date" name="application_deadline" defaultValue={kase.application_deadline ?? ''} /></Field>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn primary">{t('save')}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 function FreeRetakeModal({ source, onClose }) {
-  const [countries, setCountries] = useState([])
+  const { t, lang } = useLang()
+  const [countries, setCountries] = useState(null)
   const [services, setServices] = useState([])
   useEffect(() => {
-    supabase.from('countries').select('id,name_fr').order('sort_order').then(({ data }) => setCountries(data ?? []))
-    supabase.from('service_types').select('id,label_fr,key').then(({ data }) => setServices(data ?? []))
+    supabase.from('countries').select('id,name_fr,name_en').order('sort_order').then(({ data }) => setCountries(data ?? []))
+    supabase.from('service_types').select('id,label_fr,label_en,key').then(({ data }) => setServices(data ?? []))
   }, [])
   async function submit(e) {
     e.preventDefault()
@@ -309,26 +316,28 @@ function FreeRetakeModal({ source, onClose }) {
         p_service_type: f.service_type_id, p_university: f.university || null, p_program: f.program || null,
       })
       onClose()
-      alert('Dossier de 2ᵉ chance gratuit créé (aucune facture ne sera émise).')
+      alert(t('retakeDone'))
       window.location.href = `/students/${source.student.id}`
     } catch (ex) { alert(ex.message) }
   }
   return (
-    <Modal title="2ᵉ tentative gratuite après refus" onClose={onClose}>
-      <form onSubmit={submit}>
-        <Field label="Pays *"><select name="country_id" required>
-          {countries.map((c) => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
-        </select></Field>
-        <Field label="Service *"><select name="service_type_id" required>
-          {services.map((s) => <option key={s.id} value={s.id}>{s.label_fr}</option>)}
-        </select></Field>
-        <Field label="Université"><input name="university" /></Field>
-        <Field label="Programme"><input name="program" /></Field>
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className="btn ghost" onClick={onClose}>Annuler</button>
-          <button className="btn primary">Créer</button>
-        </div>
-      </form>
+    <Modal title={t('retakeTitle')} onClose={onClose}>
+      {!countries ? <Loading /> : (
+        <form onSubmit={submit}>
+          <Field label={`${t('country')} *`}><select name="country_id" required>
+            {countries.map((c) => <option key={c.id} value={c.id}>{lang==='ar'?c.name_en:c.name_fr}</option>)}
+          </select></Field>
+          <Field label={`${t('service')} *`}><select name="service_type_id" required>
+            {services.map((s) => <option key={s.id} value={s.id}>{lang==='ar'?s.label_en:s.label_fr}</option>)}
+          </select></Field>
+          <Field label={t('university')}><input name="university" /></Field>
+          <Field label={t('program')}><input name="program" /></Field>
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
+            <button className="btn primary">{t('create')}</button>
+          </div>
+        </form>
+      )}
     </Modal>
   )
 }

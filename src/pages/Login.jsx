@@ -45,7 +45,7 @@ export default function Login() {
         const { error: vErr } = await supabase.auth.mfa.verify({
           factorId: mfaFactor.id, challengeId, code: code.replace(/\s/g, ''),
         })
-        if (vErr) throw new Error('Code incorrect.')
+        if (vErr) throw new Error(t('secBadCode'))
       }
 
       // Route by role (staff vs student portal)

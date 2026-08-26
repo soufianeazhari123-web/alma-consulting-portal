@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useLang, MONTHS, DAYS } from '../lib/i18n'
 import { Loading } from '../components/ui'
 
-const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
-
-// Calendar of deadlines (cases) + task due dates for the visible scope.
-// RLS scopes automatically; agents see their own cases.
 // Local-time date key (never use toISOString — timezone shift bug)
 function localISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// Calendar of deadlines (cases) + task due dates for the visible scope.
 export default function CalendarPage() {
   const nav = useNavigate()
+  const { t, lang } = useLang()
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
   const [events, setEvents] = useState(null)
 
@@ -53,18 +52,18 @@ export default function CalendarPage() {
   return (
     <>
       <div className="topbar">
-        <h1>Calendrier</h1>
+        <h1>{t('calendar')}</h1>
         <div className="row">
           <button className="btn ghost sm" onClick={() =>
             cursor.m === 0 ? setCursor({ y: cursor.y - 1, m: 11 }) : setCursor({ ...cursor, m: cursor.m - 1 })}>◀</button>
-          <strong style={{ minWidth: 150, textAlign: 'center' }}>{MONTHS_FR[cursor.m]} {cursor.y}</strong>
+          <strong style={{ minWidth: 150, textAlign: 'center' }}>{MONTHS[lang][cursor.m]} {cursor.y}</strong>
           <button className="btn ghost sm" onClick={() =>
             cursor.m === 11 ? setCursor({ y: cursor.y + 1, m: 0 }) : setCursor({ ...cursor, m: cursor.m + 1 })}>▶</button>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
-        {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((d) =>
+        {DAYS[lang].map((d) =>
           <div key={d} className="hint" style={{ textAlign: 'center', fontWeight: 700 }}>{d}</div>)}
         {grid.map((date, i) => {
           if (!date) return <div key={i} />

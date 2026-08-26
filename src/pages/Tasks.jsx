@@ -6,7 +6,7 @@ import { Modal, Field, Loading, Empty, StatusBadge } from '../components/ui'
 
 export default function Tasks() {
   const { profile } = useAuth()
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const [rows, setRows] = useState(null)
   const [view, setView] = useState('mine') // mine | agency | overdue
   const [add, setAdd] = useState(false)
@@ -39,17 +39,17 @@ export default function Tasks() {
         <h1>{t('tasks')}</h1>
         <div className="row">
           <select value={view} onChange={(e) => setView(e.target.value)}>
-            <option value="mine">Mes tâches</option>
-            <option value="all">{profile.role === 'super_admin' ? 'Toutes (société)' : 'Agence'}</option>
-            <option value="overdue">En retard</option>
+            <option value="mine">{t('myTasksView')}</option>
+            <option value="all">{profile.role === 'super_admin' ? t('allCompany') : t('agencyView')}</option>
+            <option value="overdue">{t('overdueOnly')}</option>
           </select>
-          <button className="btn primary" onClick={() => setAdd(true)}>+ Nouvelle tâche</button>
+          <button className="btn primary" onClick={() => setAdd(true)}>{t('newTask')}</button>
         </div>
       </div>
 
       {!rows ? <Loading /> : rows.length === 0 ? <Empty msg={t('noData')} /> : (
         <div className="tablewrap"><table className="tbl">
-          <thead><tr><th></th><th>Tâche</th><th>Étudiant</th><th>Assignée à</th><th>Échéance</th><th>Priorité</th></tr></thead>
+          <thead><tr><th></th><th>{t('tasks')}</th><th>{t('students')}</th><th>{t('assignedTo')}</th><th>{t('dueAt')}</th><th>{t('priority')}</th></tr></thead>
           <tbody>{rows.map((task) => {
             const late = task.due_at && task.status !== 'done' && new Date(task.due_at) < new Date()
             return (
@@ -61,9 +61,9 @@ export default function Tasks() {
                 <td>{task.student?.full_name ?? '—'}</td>
                 <td>{task.assignee_p?.full_name ?? '—'}</td>
                 <td>{late ? <span className="badge red">⚠ {t('overdue')}</span> : null}
-                  {' '}{task.due_at ? new Date(task.due_at).toLocaleString('fr-FR') : '—'}</td>
+                  {' '}{task.due_at ? new Date(task.due_at).toLocaleString(lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : 'fr-FR') : '—'}</td>
                 <td><span className={`badge ${task.priority === 'urgent' ? 'red' : task.priority === 'high' ? 'orange' : 'gray'}`}>
-                  {task.priority}</span></td>
+                  {t({ low:'prioLow', normal:'prioNormal', high:'prioHigh', urgent:'prioUrgent' }[task.priority] ?? task.priority)}</span></td>
               </tr>
             )
           })}</tbody>
@@ -77,6 +77,7 @@ export default function Tasks() {
 
 function AddTask({ onClose }) {
   const { profile } = useAuth()
+  const { t } = useLang()
   const [students, setStudents] = useState([])
   useEffect(() => {
     supabase.from('students').select('id,full_name').eq('is_archived', false).then(({ data }) => setStudents(data ?? []))
@@ -98,28 +99,30 @@ function AddTask({ onClose }) {
     onClose()
   }
   return (
-    <Modal title="Nouvelle tâche" onClose={onClose}>
+    <Modal title={t('newTask')} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Titre *"><input name="title" required /></Field>
-        <Field label="Description"><textarea name="description" rows={2} /></Field>
+        <Field label={t('taskTitleLbl')}><input name="title" required /></Field>
+        <Field label={t('description')}><textarea name="description" rows={2} /></Field>
         <div className="grid c2">
-          <Field label="Priorité">
+          <Field label={t('priority')}>
             <select name="priority" defaultValue="normal">
-              <option value="low">Basse</option><option value="normal">Normale</option>
-              <option value="high">Haute</option><option value="urgent">Urgente</option>
+              <option value="low">{t('prioLow')}</option>
+              <option value="normal">{t('prioNormal')}</option>
+              <option value="high">{t('prioHigh')}</option>
+              <option value="urgent">{t('prioUrgent')}</option>
             </select>
           </Field>
-          <Field label="Échéance"><input type="datetime-local" name="due_at" /></Field>
+          <Field label={t('dueAt')}><input type="datetime-local" name="due_at" /></Field>
         </div>
-        <Field label="Étudiant lié (optionnel)">
+        <Field label={t('linkedStudent')}>
           <select name="student_id" defaultValue="">
             <option value="">—</option>
             {students.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
           </select>
         </Field>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className="btn ghost" onClick={onClose}>Annuler</button>
-          <button className="btn primary">Créer</button>
+          <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn primary">{t('create')}</button>
         </div>
       </form>
     </Modal>

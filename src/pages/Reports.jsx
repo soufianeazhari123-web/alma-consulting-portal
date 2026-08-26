@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
+import { useLang } from '../lib/i18n'
 
 // Q18: in-app printable weekly owner/director report.
 function mondayOf(d) {
@@ -14,6 +15,7 @@ function localISO(d) {
 }
 
 export default function Reports() {
+  const { t, lang } = useLang()
   const [weekStart, setWeekStart] = useState(mondayOf(new Date()))
   const [data, setData] = useState(null)
 
@@ -45,45 +47,48 @@ export default function Reports() {
     })
   }
 
-  if (!data) return <p className="hint">…</p>
+  if (!data) return <p className="hint">{t('loading')}</p>
+  const loc = lang === 'ar' ? 'ar-MA' : lang === 'en' ? 'en-GB' : 'fr-FR'
+  const weekEnd = new Date(new Date(weekStart).setDate(weekStart.getDate() + 6))
   return (
     <>
       <div className="topbar">
-        <h1>Rapport hebdomadaire</h1>
+        <h1>{t('weeklyReport')}</h1>
         <div className="row no-print">
           <input type="date" value={localISO(weekStart)}
             onChange={(e) => setWeekStart(mondayOf(new Date(e.target.value)))} />
-          <button className="btn primary" onClick={() => window.print()}>🖨 Imprimer / PDF</button>
+          <button className="btn primary" onClick={() => window.print()}>{t('print')}</button>
         </div>
       </div>
 
       <div className="doc-sheet">
         <div className="doc-head">
           <div><div className="mark">ALMA CONSULTING</div>
-            <div style={{ fontSize: 12 }}>Rapport du {weekStart.toLocaleDateString('fr-FR')} au
-              {' '}{new Date(new Date(weekStart).setDate(weekStart.getDate() + 6)).toLocaleDateString('fr-FR')}</div></div>
+            <div style={{ fontSize: 12 }}>
+              {t('reportPeriod', { a: weekStart.toLocaleDateString(loc), b: weekEnd.toLocaleDateString(loc) })}
+            </div></div>
         </div>
 
         <div className="grid c3" style={{ marginTop: 14 }}>
-          <div className="card stat"><div className="k">Nouveaux étudiants</div><div className="v">{data.newStudents}</div></div>
-          <div className="card stat"><div className="k">Nouveaux dossiers</div><div className="v">{data.newCases}</div></div>
-          <div className="card stat gold"><div className="k">Encaissé vérifié (semaine)</div><div className="v">{data.collected.toLocaleString()} MAD</div></div>
-          <div className="card stat"><div className="k">Paiements à vérifier</div><div className="v">{data.pendingVerifs.length}</div></div>
-          <div className="card stat"><div className="k">Tâches en retard</div><div className="v">{data.overdueTasks}</div></div>
-          <div className="card stat"><div className="k">File de révision</div><div className="v">{data.queue.length}</div></div>
+          <div className="card stat"><div className="k">{t('repNewStudents')}</div><div className="v">{data.newStudents}</div></div>
+          <div className="card stat"><div className="k">{t('repNewCases')}</div><div className="v">{data.newCases}</div></div>
+          <div className="card stat gold"><div className="k">{t('repCollected')}</div><div className="v">{data.collected.toLocaleString()} MAD</div></div>
+          <div className="card stat"><div className="k">{t('repPending')}</div><div className="v">{data.pendingVerifs.length}</div></div>
+          <div className="card stat"><div className="k">{t('repOverdue')}</div><div className="v">{data.overdueTasks}</div></div>
+          <div className="card stat"><div className="k">{t('repQueue')}</div><div className="v">{data.queue.length}</div></div>
         </div>
 
-        <h2 className="section">Dossiers par étape</h2>
+        <h2 className="section">{t('repByStage')}</h2>
         <table className="tbl"><tbody>
           {Object.entries(data.byStage).sort((a, b) => b[1] - a[1]).map(([st, n]) => (
-            <tr key={st}><td>{st.replaceAll('_', ' ')}</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{n}</td></tr>
+            <tr key={st}><td>{st.replaceAll('_', ' ')}</td><td style={{ textAlign: lang === 'ar' ? 'left' : 'right', fontWeight: 700 }}>{n}</td></tr>
           ))}
         </tbody></table>
 
         {data.queue.length > 0 && <>
-          <h2 className="section">En attente de votre révision</h2>
+          <h2 className="section">{t('repAwaitingYou')}</h2>
           <ul>{data.queue.map((c) => (
-            <li key={c.id}>{c.ref} — {c.student?.full_name} — depuis le {new Date(c.marked_ready_at).toLocaleDateString('fr-FR')}</li>
+            <li key={c.id}>{c.ref} — {c.student?.full_name} — {t('sinceOn')} {new Date(c.marked_ready_at).toLocaleDateString(loc)}</li>
           ))}</ul>
         </>}
       </div>

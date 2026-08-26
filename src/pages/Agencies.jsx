@@ -4,7 +4,8 @@ import { useAuth } from '../auth/AuthContext'
 import { useLang } from '../lib/i18n'
 import { Modal, Field, Loading, Empty } from '../components/ui'
 
-// Super Admin only (route-guarded). Directors/agents read their own agency via RLS.
+// Super Admin only (route-guarded). Directors/agents read their own
+// agency via RLS. SA may add, edit, ARCHIVE and (if empty) DELETE agencies.
 export default function Agencies() {
   const { t } = useLang()
   const [rows, setRows] = useState(null)
@@ -32,55 +33,91 @@ export default function Agencies() {
     setEdit(null); load()
   }
 
+  // SA right #1: archive / unarchive (keeps all history)
+  async function toggleArchive(a) {
+    const msg = a.is_active ? t('archiveConfirm') : t('unarchiveConfirm')
+    if (!confirm(msg)) return
+    const { error } = await supabase.from('agencies').update({ is_active: !a.is_active }).eq('id', a.id)
+    if (error) return alert(error.message)
+    load()
+  }
+
+  // SA right #2: hard delete — only when the agency has no dependent rows
+  async function remove(a) {
+    if (!confirm(t('deleteConfirm'))) return
+
+    // Pre-check dependents for a friendly message (server FK still guards)
+    const [st, pr, ca] = await Promise.all([
+      supabase.from('students').select('id', { count: 'exact', head: true }).eq('agency_id', a.id),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('agency_id', a.id),
+      supabase.from('cases').select('id', { count: 'exact', head: true }).eq('agency_id', a.id),
+    ])
+    const total = (st.count ?? 0) + (pr.count ?? 0) + (ca.count ?? 0)
+    if (total > 0) {
+      alert(`${t('deleteHasData')} (${total})`)
+      return
+    }
+    const { error } = await supabase.from('agencies').delete().eq('id', a.id)
+    if (error) return alert(error.message.includes('foreign key') ? t('deleteHasData') : error.message)
+    load()
+  }
+
   if (!rows) return <Loading />
   return (
     <>
       <div className="topbar">
-        <h1 className="page">{t('teamAgencies')} — {t('agency')}</h1>
-        <button className="btn primary" onClick={() => setEdit({})}>+ {t('addAgency')}</button>
+        <h1 className="page">{t('teamAgencies')}</h1>
+        <button className="btn primary" onClick={() => setEdit({})}>{t('addAgency')}</button>
       </div>
       {rows.length === 0 ? <Empty msg={t('noData')} /> : (
         <div className="tablewrap"><table className="tbl">
           <thead><tr>
-            <th>{t('agency')}</th><th>Ville</th><th>Préfixe</th><th>Banque</th><th>{t('status')}</th><th></th>
+            <th>{t('agency')}</th><th>{t('cityLbl')}</th><th>Préfixe</th>
+            <th>{t('bank')}</th><th>{t('status')}</th><th>{t('actions')}</th>
           </tr></thead>
           <tbody>{rows.map((a) => (
-            <tr key={a.id}>
+            <tr key={a.id} style={!a.is_active ? { opacity: .55 } : undefined}>
               <td><strong>{a.name}</strong></td>
               <td>{a.city}</td>
               <td><span className="badge gold">{a.invoice_prefix}</span></td>
               <td>{a.bank_name || '—'}</td>
               <td>{a.is_active ? <span className="badge green">{t('active')}</span> : <span className="badge gray">{t('inactive')}</span>}</td>
-              <td><button className="btn ghost sm" onClick={() => setEdit(a)}>✎</button></td>
+              <td className="row no-print">
+                <button className="btn ghost sm" title={t('editDetails')} onClick={() => setEdit(a)}>✎</button>
+                <button className="btn ghost sm" onClick={() => toggleArchive(a)}>
+                  {a.is_active ? t('archive') : t('unarchive')}
+                </button>
+                <button className="btn danger sm" onClick={() => remove(a)}>{t('deleteAgency')}</button>
+              </td>
             </tr>
           ))}</tbody>
         </table></div>
       )}
 
       {edit && (
-        <Modal title={edit.id ? t('agency') : t('addAgency')} onClose={() => setEdit(null)}>
+        <Modal title={edit.id ? `${t('agency')} — ${edit.name}` : t('addAgency')} onClose={() => setEdit(null)}>
           <form onSubmit={save}>
-            <Field label="Nom *"><input name="name" required defaultValue={edit.name} /></Field>
+            <Field label={t('agencyName')}><input name="name" required defaultValue={edit.name} /></Field>
             <div className="grid c2">
-              <Field label="Ville"><input name="city" defaultValue={edit.city} /></Field>
-              <Field label="Téléphone"><input name="phone" defaultValue={edit.phone} /></Field>
+              <Field label={t('cityLbl')}><input name="city" defaultValue={edit.city} /></Field>
+              <Field label={t('phoneLbl')}><input name="phone" defaultValue={edit.phone} /></Field>
             </div>
-            <Field label="Adresse"><input name="address" defaultValue={edit.address} /></Field>
-            <Field label="Email public"><input name="email" type="email" defaultValue={edit.email} /></Field>
-            <h2 className="section">Coordonnées bancaires (protégées)</h2>
+            <Field label={t('addressLbl')}><input name="address" defaultValue={edit.address} /></Field>
+            <Field label={t('publicEmail')}><input name="email" type="email" defaultValue={edit.email} /></Field>
+            <h2 className="section">{t('bankSection')}</h2>
             <div className="grid c2">
-              <Field label="Banque"><input name="bank_name" defaultValue={edit.bank_name} /></Field>
-              <Field label="Titulaire du compte"><input name="bank_account_holder" defaultValue={edit.bank_account_holder} /></Field>
+              <Field label={t('bankName')}><input name="bank_name" defaultValue={edit.bank_name} /></Field>
+              <Field label={t('accountHolder')}><input name="bank_account_holder" defaultValue={edit.bank_account_holder} /></Field>
             </div>
-            <Field label="IBAN / RIB"><input name="bank_iban" defaultValue={edit.bank_iban} /></Field>
-            <Field label="Instructions de virement"><textarea name="bank_instructions" rows={2} defaultValue={edit.bank_instructions} /></Field>
+            <Field label={t('iban')}><input name="bank_iban" defaultValue={edit.bank_iban} /></Field>
+            <Field label={t('transferInstr')}><textarea name="bank_instructions" rows={2} defaultValue={edit.bank_instructions} /></Field>
             <div className="grid c2">
-              <Field label="Préfixe facture (ex OUJ) *"><input name="invoice_prefix" required maxLength={5}
+              <Field label={t('prefixLbl')}><input name="invoice_prefix" required maxLength={5}
                 defaultValue={edit.invoice_prefix} /></Field>
-              <Field label="Active">
+              <Field label={t('active')}>
                 <label style={{ display:'flex', gap:8, alignItems:'center', fontWeight:400 }}>
                   <input type="checkbox" name="is_active" defaultChecked={edit.id ? edit.is_active : true} style={{width:'auto'}} />
-                  Agence active
+                  {t('activeAgency')}
                 </label>
               </Field>
             </div>
@@ -94,6 +131,3 @@ export default function Agencies() {
     </>
   )
 }
-
-// Staff management (SA: all agencies / Director: own agency — enforced by RLS + fn)
-export { default as StaffInner } from './Staff'

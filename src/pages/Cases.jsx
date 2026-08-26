@@ -30,7 +30,7 @@ export default function Cases() {
       <div className="topbar">
         <h1 className="page">{t('applications')}</h1>
         <select value={stage} onChange={(e) => setStage(e.target.value)} style={{ width: 220 }}>
-          <option value="">Tous les stades</option>
+          <option value="">{t('allStages')}</option>
           {['draft','documents_in_progress','ready_for_review','changes_requested','approved_for_submission',
             'appointment_booked','submitted','additional_info_requested','accepted','rejected',
             'visa_approved','visa_refused','withdrawn','closed'].map((s) => <option key={s} value={s}>{s}</option>)}
@@ -39,7 +39,7 @@ export default function Cases() {
       {rows.length === 0 ? <Empty msg={t('noData')} /> : (
         <div className="tablewrap"><table className="tbl">
           <thead><tr>
-            <th>{t('caseRef')}</th><th>Étudiant</th><th>Pays</th><th>Service</th><th>{t('stage')}</th>
+            <th>{t('ref')}</th><th>{t('students')}</th><th>{t('country')}</th><th>{t('service')}</th><th>{t('stage')}</th>
           </tr></thead>
           <tbody>{rows.map((c) => (
             <tr key={c.id} className="clickable" onClick={() => nav(`/cases/${c.id}`)}>
