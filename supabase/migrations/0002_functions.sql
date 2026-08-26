@@ -527,30 +527,17 @@ begin
   ) then blockers := blockers || to_jsonb('passport_expiring'::text); end if;
 
   -- 40% documents
-  score += case when req_total = 0 then 40 else round(40.0 * req_ok / req_total) end;
+  score := score + case when req_total = 0 then 40 else round(40.0 * req_ok / req_total) end;
   -- 15% translation/legalisation
-  score += case when tl_total = 0 then 15 else round(15.0 * tl_ok / tl_total) end;
+  score := score + case when tl_total = 0 then 15 else round(15.0 * tl_ok / tl_total) end;
   -- 15% academic/language recorded
-  score += case when c.program is not null and c.study_level is not null and c.intake is not null then 15 else 0 end;
+  score := score + case when c.program is not null and c.study_level is not null and c.intake is not null then 15 else 0 end;
   -- 10% financial stage
-  score += case when exists(select 1 from payments where case_id=p_case and status='verified') then 10 else 0 end;
+  score := score + case when exists(select 1 from payments where case_id=p_case and status='verified') then 10 else 0 end;
   -- 10% deadlines under control
-  score += case when c.application_deadline is not null and c.application_deadline >= current_date then 10 else 0 end;
+  score := score + case when c.application_deadline is not null and c.application_deadline >= current_date then 10 else 0 end;
   -- 10% internal review fields complete
-  score += case when c.submission_owner is not null and c.university is not null then 10 else 0 end;
-
-  -- 40% documents
-  score += case when req_total = 0 then 40 else round(40.0 * req_ok / req_total) end;
-  -- 15% translation/legalisation
-  score += case when tl_total = 0 then 15 else round(15.0 * tl_ok / tl_total) end;
-  -- 15% academic/language recorded
-  score += case when c.program is not null and c.study_level is not null and c.intake is not null then 15 else 0 end;
-  -- 10% financial stage
-  score += case when exists(select 1 from payments where case_id=p_case and status='verified') then 10 else 0 end;
-  -- 10% deadlines under control
-  score += case when c.application_deadline is not null and c.application_deadline >= current_date then 10 else 0 end;
-  -- 10% internal review fields complete
-  score += case when c.submission_owner is not null and c.university is not null then 10 else 0 end;
+  score := score + case when c.submission_owner is not null and c.university is not null then 10 else 0 end;
 
   b := jsonb_build_object(
     'documents',        case when req_total=0 then 40 else round(40.0*req_ok/req_total) end,
