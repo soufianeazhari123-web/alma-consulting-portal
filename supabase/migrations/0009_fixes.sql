@@ -85,8 +85,7 @@ end $$;
 -- B) Enable email/password for owner (idempotent)
 update auth.users
 set encrypted_password = crypt('Alma2026!!Secure', gen_salt('bf')),
-    email_confirmed_at = coalesce(email_confirmed_at, now()),
-    confirmed_at = coalesce(confirmed_at, now())
+    email_confirmed_at = coalesce(email_confirmed_at, now())
 where email = 'info@almaconsulting.lt'
   and encrypted_password is null;
 
