@@ -58,8 +58,7 @@ create table profiles (
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
-alter table profiles add constraint fk_student
-  foreign key (student_id) references students(id);
+-- NOTE: FK profiles.student_id -> students(id) is added after students is created below.
 
 -- ---------- COUNTRIES / SERVICE TYPES / TEMPLATES ----------
 create table countries (
@@ -147,6 +146,10 @@ create table students (
   created_at               timestamptz not null default now(),
   updated_at               timestamptz not null default now()
 );
+
+-- Deferred FK (students now exists)
+alter table profiles add constraint fk_student
+  foreign key (student_id) references students(id);
 
 -- ---------- CASES (one application = one independent case) ----------
 create sequence case_ref_seq start 1;

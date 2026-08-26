@@ -20,6 +20,7 @@ export default function CaseDetail() {
   const [history, setHistory] = useState([])
   const [busy, setBusy] = useState(false)
   const [retakeOpen, setRetakeOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const isSA = profile.role === 'super_admin'
   const isDir = profile.role === 'director'
@@ -29,7 +30,7 @@ export default function CaseDetail() {
   async function load() {
     const [{ data: k }, { data: it }, { data: ch }] = await Promise.all([
       supabase.from('cases')
-        .select('*, student:students(id,full_name,ref,email), country:countries(name_fr,name_en), service:service_types(label_fr,label_en)')
+        .select('*, student:students(id,full_name,ref,email), country:countries(name_fr,name_en), service:service_types(label_fr,label_en,key)')
         .eq('id', id).single(),
       supabase.from('case_checklist_items').select('*').eq('case_id', id).order('sort_order'),
       supabase.from('case_history').select('*').eq('case_id', id).order('created_at', { ascending: false }).limit(30),
@@ -128,6 +129,7 @@ export default function CaseDetail() {
           <StageBadge s={stage} />
           {readiness && <ReadinessMeter score={readiness.score} />}
           <button className="btn ghost sm" onClick={refreshScore}>↻ Score</button>
+          {canPrepare && <button className="btn ghost sm" onClick={() => setEditOpen(true)}>✎ Détails</button>}
         </div>
       </div>
 
@@ -152,8 +154,8 @@ export default function CaseDetail() {
           {(isSA) && stage === 'approved_for_submission' && kase.service.key === 'visa_trp' &&
             <button className="btn primary" disabled={busy} onClick={() => transition('appointment_booked')}>
               📅 Rendez-vous confirmé</button>}
-          {(isSA || isDir) && stage === 'appointment_booked' &&
-            <button className="btn primary" disabled={busy} onClick={() => transition('submitted')}>📤 Dossier déposé</button>}
+          {(isSA) && stage === 'appointment_booked' &&
+            <button className="btn primary" disabled={busy} onClick={() => transition('submitted')}>📤 Dossier déposé (Super Admin)</button>}
           {isSA && stage === 'submitted' && <>
             <button className="btn ok" disabled={busy} onClick={() =>
               transition(kase.service.key === 'visa_trp' ? 'biometrics_interview' : 'accepted')}>
@@ -239,6 +241,45 @@ export default function CaseDetail() {
       </ul>
 
       {retakeOpen && <FreeRetakeModal source={kase} onClose={() => setRetakeOpen(false)} />}
+      {editOpen && (
+        <Modal title="Modifier les détails du dossier" onClose={() => setEditOpen(false)}>
+          <form onSubmit={async (e) => {
+            e.preventDefault()
+            const f = Object.fromEntries(new FormData(e.target))
+            try {
+              await supabase.rpc('update_case_details', {
+                p_case: id,
+                p_university: f.university || null,
+                p_program: f.program || null,
+                p_study_level: f.study_level || null,
+                p_intake: f.intake || null,
+                p_intake_month: f.intake_month || null,
+                p_deadline: f.application_deadline || null,
+              })
+              setEditOpen(false); await load()
+            } catch (ex) { alert(ex.message) }
+          }}>
+            <Field label="Université / Institution"><input name="university" defaultValue={kase.university ?? ''} /></Field>
+            <div className="grid c2">
+              <Field label="Programme"><input name="program" defaultValue={kase.program ?? ''} /></Field>
+              <Field label="Niveau"><input name="study_level" defaultValue={kase.study_level ?? ''} /></Field>
+              <Field label="Rentrée (libre)"><input name="intake" defaultValue={kase.intake ?? ''} /></Field>
+              <Field label="Saison">
+                <select name="intake_month" defaultValue={kase.intake_month ?? ''}>
+                  <option value="">—</option>
+                  <option value="september">Septembre</option>
+                  <option value="february">Février</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Date limite"><input type="date" name="application_deadline" defaultValue={kase.application_deadline ?? ''} /></Field>
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="btn ghost" onClick={() => setEditOpen(false)}>Annuler</button>
+              <button className="btn primary">{t('save')}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   )
 }

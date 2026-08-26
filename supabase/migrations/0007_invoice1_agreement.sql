@@ -11,12 +11,18 @@ update installment_rules set service_scope = 'agreement_signed' where id = 1;
 
 create or replace function auto_issue_installments()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare r record;
+declare r record; case_service text;
 begin
   if new.stage is distinct from old.stage then
+    select st.key into case_service from service_types st where st.id = new.service_type_id;
+
     for r in select id, service_scope from installment_rules
              where trigger_stage = new.stage and is_active loop
-      continue when r.service_scope = 'agreement_signed'; -- handled by students trigger
+      -- Installment #1 is triggered by the signed agreement (students trigger)
+      continue when r.service_scope = 'agreement_signed';
+      -- Respect per-service scope: university rule must not fire on visa cases, etc.
+      continue when r.service_scope <> 'any'
+                 and r.service_scope <> case_service;
       perform issue_invoice(new.id, r.id);
     end loop;
   end if;

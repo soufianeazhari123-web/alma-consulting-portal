@@ -7,6 +7,11 @@ const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','A
 
 // Calendar of deadlines (cases) + task due dates for the visible scope.
 // RLS scopes automatically; agents see their own cases.
+// Local-time date key (never use toISOString — timezone shift bug)
+function localISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function CalendarPage() {
   const nav = useNavigate()
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
@@ -36,11 +41,11 @@ export default function CalendarPage() {
   if (!events) return <Loading />
 
   const dayEvents = (date) => {
-    const iso = date.toISOString().slice(0, 10)
+    const iso = localISO(date)
     return [
       ...events.cases.filter((c) => c.application_deadline === iso)
         .map((c) => ({ type: 'deadline', label: `⏰ ${c.ref}`, id: c.id })),
-      ...events.tasks.filter((t) => t.due_at?.slice(0, 10) === iso)
+      ...events.tasks.filter((t) => t.due_at && localISO(new Date(t.due_at)) === iso)
         .map((t) => ({ type: t.status === 'done' ? 'done' : 'task', label: t.title.slice(0, 22), id: t.id })),
     ]
   }

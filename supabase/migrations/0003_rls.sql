@@ -23,7 +23,7 @@ $$;
 create or replace function update_case_details(
   p_case uuid, p_university text default null, p_program text default null,
   p_study_level text default null, p_intake text default null,
-  p_deadline date default null
+  p_deadline date default null, p_intake_month text default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
 declare c record;
@@ -33,12 +33,16 @@ begin
   if not can_access_case(p_case) then raise exception 'FORBIDDEN'; end if;
   if c.stage in ('submitted','accepted','rejected','visa_approved','visa_refused','closed')
      and not is_super_admin() then raise exception 'CASE_FROZEN'; end if;
+  if p_intake_month is not null and p_intake_month not in ('september','february') then
+    raise exception 'BAD_INTAKE_MONTH';
+  end if;
 
   update cases set
     university         = coalesce(p_university, university),
     program            = coalesce(p_program, program),
     study_level        = coalesce(p_study_level, study_level),
     intake             = coalesce(p_intake, intake),
+    intake_month       = coalesce(p_intake_month, intake_month),
     application_deadline = coalesce(p_deadline, application_deadline),
     submission_owner   = coalesce(submission_owner,
                          case when is_super_admin() then auth.uid() end)
@@ -72,14 +76,17 @@ create or replace function review_checklist_item(
   p_item uuid, p_status text, p_comment text default null
 ) returns void
 language plpgsql security definer set search_path = public as $$
-declare it record;
+declare ag uuid;
 begin
-  select * into it from case_checklist_items where id = p_item;
-  if not found then raise exception 'ITEM_NOT_FOUND'; end if;
-  select * into it from cases where id = it.case_id;
-  if not (is_super_admin()
-          or is_director_of((select agency_id from students s join cases c on c.student_id=s.id where c.id=it.case_id)))
-  then raise exception 'REVIEWER_FORBIDDEN'; end if;
+  select c.agency_id into ag
+  from case_checklist_items ci
+  join cases c  on c.id = ci.case_id
+  where ci.id = p_item;
+  if ag is null then raise exception 'ITEM_NOT_FOUND'; end if;
+
+  if not (is_super_admin() or is_director_of(ag)) then
+    raise exception 'REVIEWER_FORBIDDEN';
+  end if;
   if p_status not in ('approved','changes_requested','waived','requested') then
     raise exception 'BAD_STATUS';
   end if;
@@ -90,6 +97,14 @@ begin
     reviewed_by = auth.uid(),
     reviewed_at = now()
   where id = p_item;
+
+  -- Keep document review status in sync with the item decision
+  update case_documents set
+    review_status = p_status::doc_item_status,
+    review_comment = p_comment,
+    reviewed_by = auth.uid(),
+    reviewed_at = now()
+  where checklist_item_id = p_item and status = 'current';
 end $$;
 
 -- Versioning: new upload supersedes previous (spec §9)
@@ -99,6 +114,9 @@ create or replace function register_upload(
 language plpgsql security definer set search_path = public as $$
 declare it record; docid uuid;
 begin
+  -- Serialize concurrent uploads for the same item
+  perform 1 from case_checklist_items where id = p_item for update;
+
   select * into it from case_checklist_items where id = p_item;
   if not found then raise exception 'ITEM_NOT_FOUND'; end if;
   select * into it from cases where id = it.case_id;

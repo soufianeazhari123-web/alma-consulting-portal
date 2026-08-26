@@ -394,6 +394,15 @@ begin
   if not found then raise exception 'CASE_NOT_FOUND'; end if;
   if not can_access_case(p_case) then raise exception 'FORBIDDEN'; end if;
 
+  -- Terminal stages are frozen; only the Super Admin may leave them (audited reopen)
+  if c.stage in ('accepted','rejected','visa_approved','visa_refused','closed','withdrawn')
+     and not is_super_admin() then
+    raise exception 'TERMINAL_STAGE_FROZEN';
+  end if;
+  if c.stage = 'ready_for_review' and r in ('agent','director') then
+    raise exception 'LOCKED_IN_REVIEW_QUEUE';
+  end if;
+
   -- Agent restrictions
   if r = 'agent' then
     if c.agent_id <> auth.uid() then raise exception 'FORBIDDEN'; end if;
@@ -479,6 +488,7 @@ returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare c record; b jsonb; blockers jsonb := '[]'::jsonb; score numeric := 0;
   req_total int; req_ok int; tl_total int; tl_ok int;
+  has_missing_required boolean; has_unresolved_review boolean; deadline_passed boolean;
 begin
   select * into c from cases where id = p_case;
   if not found then raise exception 'CASE_NOT_FOUND'; end if;
@@ -493,6 +503,29 @@ begin
     where case_id=p_case and (translation_required or legalisation_required)
       and status in ('approved','waived');
 
+  -- Blockers (prevent misleading 100%)
+  select exists (
+    select 1 from case_checklist_items
+    where case_id = p_case and is_required
+      and status in ('not_requested','requested','changes_requested')
+  ) into has_missing_required;
+  select exists (
+    select 1 from case_checklist_items
+    where case_id = p_case and status = 'changes_requested'
+  ) into has_unresolved_review;
+  select (c.application_deadline < current_date) into deadline_passed;
+
+  if deadline_passed then blockers := blockers || to_jsonb('deadline_passed'::text); end if;
+  if has_missing_required then blockers := blockers || to_jsonb('missing_required_documents'::text); end if;
+  if has_unresolved_review then blockers := blockers || to_jsonb('unresolved_review_request'::text); end if;
+
+  -- Expired / soon-expiring passport blocker
+  if exists (
+    select 1 from students s where s.id = c.student_id
+      and s.passport_expiry_date is not null
+      and s.passport_expiry_date < current_date + interval '6 months'
+  ) then blockers := blockers || to_jsonb('passport_expiring'::text); end if;
+
   -- 40% documents
   score += case when req_total = 0 then 40 else round(40.0 * req_ok / req_total) end;
   -- 15% translation/legalisation
@@ -506,17 +539,18 @@ begin
   -- 10% internal review fields complete
   score += case when c.submission_owner is not null and c.university is not null then 10 else 0 end;
 
-  -- Blockers (prevent misleading 100%)
-  blockers := blockers || case
-    when c.application_deadline < current_date then to_jsonb('deadline_passed'::text) end
-    - 'null'::jsonb;
-  if exists (select 1 from case_checklist_items where case_id=p_case and is_required
-             and status in ('not_requested','requested','changes_requested'))
-     and not exists (select 1 from case_documents d join case_checklist_items i on i.id=d.checklist_item_id
-                     where d.case_id=p_case and i.is_required and d.status='current')
-  then blockers := blockers || to_jsonb('missing_required_documents'::text); end if;
-  if exists (select 1 from case_checklist_items where case_id=p_case and status='changes_requested')
-  then blockers := blockers || to_jsonb('unresolved_review_request'::text); end if;
+  -- 40% documents
+  score += case when req_total = 0 then 40 else round(40.0 * req_ok / req_total) end;
+  -- 15% translation/legalisation
+  score += case when tl_total = 0 then 15 else round(15.0 * tl_ok / tl_total) end;
+  -- 15% academic/language recorded
+  score += case when c.program is not null and c.study_level is not null and c.intake is not null then 15 else 0 end;
+  -- 10% financial stage
+  score += case when exists(select 1 from payments where case_id=p_case and status='verified') then 10 else 0 end;
+  -- 10% deadlines under control
+  score += case when c.application_deadline is not null and c.application_deadline >= current_date then 10 else 0 end;
+  -- 10% internal review fields complete
+  score += case when c.submission_owner is not null and c.university is not null then 10 else 0 end;
 
   b := jsonb_build_object(
     'documents',        case when req_total=0 then 40 else round(40.0*req_ok/req_total) end,
@@ -541,17 +575,30 @@ returns boolean language sql stable security definer set search_path = public as
 $$;
 
 create or replace function login_register_failure(p_email text)
-returns void language sql security definer set search_path = public as $$
-  insert into login_security (email, failed_count, locked_until, updated_at)
-  values (lower(p_email), 1, null, now())
-  on conflict (email) do update set
-    failed_count = case when login_security.locked_until > now() then login_security.failed_count
-                        else login_security.failed_count + 1 end,
-    locked_until = case when (case when login_security.locked_until > now() then login_security.failed_count
-                              else login_security.failed_count + 1 end) >= 5
-                        then now() + interval '30 minutes' else null end,
-    updated_at = now();
-$$;
+returns void language plpgsql security definer set search_path = public as $$
+declare cur record;
+begin
+  select * into cur from login_security where email = lower(p_email) for update;
+
+  if cur is null then
+    insert into login_security (email, failed_count, locked_until, updated_at)
+    values (lower(p_email), 1, null, now());
+  elsif cur.locked_until > now() then
+    -- still locked: keep the lock alive until the window ends
+    update login_security set updated_at = now() where email = lower(p_email);
+  else
+    -- lock expired or normal state: start a fresh counting window
+    if (cur.failed_count + 1) >= 5 then
+      update login_security
+      set failed_count = 5, locked_until = now() + interval '30 minutes', updated_at = now()
+      where email = lower(p_email);
+    else
+      update login_security
+      set failed_count = cur.failed_count + 1, locked_until = null, updated_at = now()
+      where email = lower(p_email);
+    end if;
+  end if;
+end $$;
 
 create or replace function login_reset(p_email text)
 returns void language sql security definer set search_path = public as $$

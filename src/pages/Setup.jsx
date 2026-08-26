@@ -12,6 +12,7 @@ export default function Setup() {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState(null)
   const [ok, setOk] = useState(false)
+  const [needConfirm, setNeedConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function submit(e) {
@@ -19,16 +20,21 @@ export default function Setup() {
     setErr(null); setBusy(true)
     try {
       if (password.length < 12) throw new Error('Le mot de passe doit contenir au moins 12 caractères.')
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: { data: { full_name: fullName } },
       })
       if (error) throw error
 
+      // If email confirmation is enabled, no session exists yet.
+      if (!data.session) {
+        setNeedConfirm(true); setOk(true); return
+      }
+
       // Verify this signup actually became the owner (not a dormant pending row)
       const { data: prof } = await supabase.from('profiles')
-        .select('role, staff_code, is_active').maybeSingle()
+        .select('role, staff_code, is_active').eq('id', data.user.id).single()
       if (!prof || prof.role !== 'super_admin') {
         throw new Error('Un compte propriétaire existe déjà ou la création a échoué.')
       }
@@ -49,7 +55,11 @@ export default function Setup() {
 
         {ok ? (
           <>
-            <p className="badge green">Compte ALMA-0001 créé.</p>
+            <p className="badge green">
+              {needConfirm
+                ? 'Compte créé. Vérifiez votre boîte mail et confirmez votre adresse, puis connectez-vous — vous serez ALMA-0001.'
+                : 'Compte ALMA-0001 créé.'}
+            </p>
             <p><Link to="/login">→ {t('login')}</Link></p>
           </>
         ) : (

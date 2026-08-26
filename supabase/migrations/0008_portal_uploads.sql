@@ -12,6 +12,9 @@ declare it record; docid uuid;
 begin
   if my_role() <> 'student' then raise exception 'STUDENT_ONLY'; end if;
 
+  -- Serialize concurrent uploads for the same item
+  perform 1 from case_checklist_items where id = p_item for update;
+
   select c.* into it from cases c
   join case_checklist_items ci on ci.case_id = c.id
   where ci.id = p_item and c.student_id = my_student_id();

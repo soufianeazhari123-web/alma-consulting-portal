@@ -27,6 +27,8 @@ Exécuter **dans l'ordre**, un fichier à la fois (contenu de `supabase/migratio
 | 4 | `0004_storage.sql` | Bucket privé des documents |
 | 5 | `0005_seed.sql` | 10 pays + checklists §27 + tranches + réglages |
 | 6 | `0006_staff_code.sql` | Séquence matricules |
+| 7 | `0007_invoice1_agreement.sql` | Facture #1 à la convention signée + rappels + ajustements audités |
+| 8 | `0008_portal_uploads.sql` | Téléversement des documents par l'étudiant |
 
 Chaque exécution doit se terminer par « Success. No rows returned ».
 
@@ -48,12 +50,18 @@ Chaque exécution doit se terminer par « Success. No rows returned ».
 
 ## 4. Premier lancement
 
-1. Ouvrir `https://VOTRE-SITE.netlify.app/setup`
-2. Créer LE compte propriétaire → il devient **Super Admin ALMA-0001** (définitif, unique).
-3. Se connecter sur `/login`.
-4. Créer les agences (Oujda, Nador…) → Team & Agencies.
-5. Créer directeurs/agents (mot de passe temporaire à remettre en main propre).
-6. Compléter Paramètres société (ICE, IF, RC…) avant la première vraie facture.
+1. **Supabase → Authentication → Providers → Email** : désactiver « Confirm email »
+   (sinon le propriétaire devra confirmer son adresse avant la première connexion).
+2. Ouvrir `https://VOTRE-SITE.netlify.app/setup`
+3. Créer LE compte propriétaire → il devient **Super Admin ALMA-0001** (définitif, unique).
+   Il devra immédiatement enroll un code TOTP (MFA obligatoire pour le propriétaire et les directeurs).
+4. Une fois le propriétaire créé : revenir dans **Authentication → Settings** et
+   **désactiver « Allow new users to sign up »** (les futurs comptes passent uniquement
+   par l'invitation des directeurs/du propriétaire).
+5. Se connecter sur `/login`.
+6. Créer les agences (Oujda, Nador…) → Team & Agencies.
+7. Créer directeurs/agents (mot de passe temporaire à remettre en main propre).
+8. Compléter Paramètres société (ICE, IF, RC…) avant la première vraie facture.
 
 ## 5. Règles métier intégrées au code
 

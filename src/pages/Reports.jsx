@@ -8,6 +8,11 @@ function mondayOf(d) {
   x.setDate(x.getDate() - day); x.setHours(0, 0, 0, 0); return x
 }
 
+// Local-time date key (timezone-safe)
+function localISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function Reports() {
   const [weekStart, setWeekStart] = useState(mondayOf(new Date()))
   const [data, setData] = useState(null)
@@ -46,7 +51,7 @@ export default function Reports() {
       <div className="topbar">
         <h1>Rapport hebdomadaire</h1>
         <div className="row no-print">
-          <input type="date" value={new Date(weekStart).toISOString().slice(0, 10)}
+          <input type="date" value={localISO(weekStart)}
             onChange={(e) => setWeekStart(mondayOf(new Date(e.target.value)))} />
           <button className="btn primary" onClick={() => window.print()}>🖨 Imprimer / PDF</button>
         </div>
