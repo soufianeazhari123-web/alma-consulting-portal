@@ -64,6 +64,13 @@ export default function Payments() {
             { label: 'Devise', get: (p) => p.currency },
             { label: 'Statut', get: (p) => p.status },
           ])}>⬇ CSV</button>
+          <button className="btn ghost" title="Génère les brouillons d'emails de rappel (7j avant + en retard), à approuver ensuite"
+            onClick={async () => {
+              try {
+                const { data: n } = await supabase.rpc('draft_installment_reminders')
+                alert(`${n ?? 0} rappel(s) préparé(s) — à valider dans Paramètres/Email avant envoi.`)
+              } catch (ex) { alert(ex.message) }
+            }}>🔔 Rappels</button>
           <button className="btn primary" disabled={openInvoices.length === 0}
             onClick={() => setAdd(true)}>+ Enregistrer un paiement</button>
         </div>
@@ -110,13 +117,20 @@ function RecordPayment({ invoices, onClose }) {
       await supabase.rpc('record_payment', {
         p_invoice: invoiceId,
         p_method: f.method,
+        // Q1: full installment amount only — enforced again server-side
         p_amount: Number(f.amount),
         p_transfer_ref: f.transfer_ref || null,
         p_proof_path: null,
       })
       alert('Paiement enregistré — en attente de vérification par le directeur.')
       onClose()
-    } catch (ex) { alert(ex.message) }
+    } catch (ex) {
+      const msgs = {
+        FULL_AMOUNT_REQUIRED: 'Le montant doit couvrir exactement le solde restant de la facture (pas de paiement partiel).',
+        PAYMENT_ALREADY_PENDING: 'Un paiement est déjà en attente de vérification pour cette facture.',
+      }
+      alert(msgs[ex.message] ?? ex.message)
+    }
   }
 
   return (

@@ -214,7 +214,9 @@ create trigger trg_init_checklist after insert on cases
   for each row execute procedure init_case_checklist();
 
 -- ============================================================
--- INVOICE NUMBERING (gapless, per-agency, per-year §11)
+-- INVOICE NUMBERING (Q10: CONTINUOUS per agency — never resets,
+-- gapless, per doc type). Display format keeps issue year:
+--   OUJ-FAC-2026-0001 -> OUJ-FAC-2027-0474 ...
 -- ============================================================
 create or replace function next_billing_number(
   p_agency uuid, p_type text, p_year int, p_kind text
@@ -222,16 +224,17 @@ create or replace function next_billing_number(
 language plpgsql security definer set search_path = public as $$
 declare seqrow billing_sequences; prefix text; num int;
 begin
+  -- Continuous sequence: single row per agency/type (year kept as first-use info)
   insert into billing_sequences (agency_id, doc_type, year, last_number)
   values (p_agency, p_type, p_year, 0)
-  on conflict (agency_id, doc_type, year) do nothing;
+  on conflict (agency_id, doc_type) do nothing;
 
   select * into seqrow from billing_sequences
-  where agency_id = p_agency and doc_type = p_type and year = p_year
+  where agency_id = p_agency and doc_type = p_type
   for update;
 
   update billing_sequences set last_number = last_number + 1
-  where agency_id = p_agency and doc_type = p_type and year = p_year
+  where agency_id = p_agency and doc_type = p_type
   returning last_number into num;
 
   select invoice_prefix into prefix from agencies where id = p_agency;
@@ -267,7 +270,7 @@ begin
   ) values (
     next_billing_number(c.agency_id,'INVOICE',yr,'FAC'),
     c.agency_id, yr,
-    (select last_number from billing_sequences where agency_id=c.agency_id and doc_type='INVOICE' and year=yr),
+    (select last_number from billing_sequences where agency_id=c.agency_id and doc_type='INVOICE'),
     c.student_id, c.id, p_installment, amt, actor,
     current_date + (select invoice_due_days from company_settings where id)
   ) returning id into inv_id;
@@ -300,13 +303,21 @@ create or replace function record_payment(
   p_transfer_ref text default null, p_proof_path text default null
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
-declare inv record; pid uuid;
+declare inv record; pid uuid; already_paid numeric; pending_exists boolean;
 begin
   select * into inv from invoices where id = p_invoice and status <> 'void';
   if not found then raise exception 'INVOICE_NOT_FOUND'; end if;
   if not can_access_student(inv.student_id) then raise exception 'FORBIDDEN'; end if;
   if my_role() = 'student' then raise exception 'FORBIDDEN'; end if;
-  if p_amount <= 0 or p_amount > inv.amount then raise exception 'INVALID_AMOUNT'; end if;
+
+  -- Q1 owner decision: FULL installments only — one payment covers the
+  -- exact open balance; no partial payments, no second pending payment.
+  select coalesce(sum(amount),0) into already_paid from payments
+  where invoice_id = inv.id and status = 'verified';
+  select exists(select 1 from payments where invoice_id = inv.id and status='pending_verification')
+    into pending_exists;
+  if pending_exists then raise exception 'PAYMENT_ALREADY_PENDING'; end if;
+  if p_amount <> (inv.amount - already_paid) then raise exception 'FULL_AMOUNT_REQUIRED'; end if;
 
   insert into payments (invoice_id, student_id, agency_id, case_id, method, amount,
                         recorded_by, transfer_ref, proof_path)
@@ -344,7 +355,7 @@ begin
   values (
     next_billing_number(pay.agency_id,'RECEIPT',yr,'REC'),
     pay.agency_id, yr,
-    (select last_number from billing_sequences where agency_id=pay.agency_id and doc_type='RECEIPT' and year=yr),
+    (select last_number from billing_sequences where agency_id=pay.agency_id and doc_type='RECEIPT'),
     pay.id, pay.invoice_id, pay.student_id,
     pay.amount, pay.currency, pay.method, auth.uid()
   ) returning id into rid;
@@ -356,6 +367,17 @@ begin
       when (select coalesce(sum(amount),0) from payments where invoice_id=i.id and status='verified') >= i.amount
       then 'paid' else 'partially_paid' end
   where id = pay.invoice_id;
+
+  -- Q8 owner decision: verified receipt is auto-emailed to the student
+  -- (transactional — no staff approval needed, unlike reminders).
+  insert into email_queue (event_key, recipient, lang, payload, requires_approval, status)
+  select 'payment.receipt_verified', coalesce(s.email, ''), s.preferred_language,
+         jsonb_build_object('student_name', s.full_name, 'receipt_number',
+                            (select number from receipts where id = rid),
+                           'amount', pay.amount, 'method', pay.method),
+         false, 'pending'
+  from students s where s.id = pay.student_id
+  on conflict do nothing;
 
   return rid;
 end $$;

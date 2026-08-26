@@ -11,6 +11,7 @@ export default function Dashboard() {
   const nav = useNavigate()
   const [stats, setStats] = useState(null)
   const [queue, setQueue] = useState([])
+  const [kpis, setKpis] = useState(null)
 
   useEffect(() => { load() }, [])
   async function load() {
@@ -41,6 +42,21 @@ export default function Dashboard() {
       soonest: casesRes.data ?? [],
     })
     setQueue(queueRes.data ?? [])
+
+    // Q17: per-agent KPI cards (director / owner view)
+    if (profile.role === 'super_admin' || profile.role === 'director') {
+      const { data: rows } = await supabase.from('cases')
+        .select('stage, agent:profiles!cases_agent_id_fkey(id, full_name)').neq('archived', true)
+      const map = {}
+      for (const r of rows ?? []) {
+        const a = r.agent; if (!a) continue
+        map[a.id] ??= { name: a.full_name, active: 0, ready: 0, returned: 0 }
+        map[a.id].active++
+        if (r.stage === 'ready_for_review') map[a.id].ready++
+        if (r.stage === 'changes_requested') map[a.id].returned++
+      }
+      setKpis(Object.values(map).sort((x, y) => y.active - x.active))
+    }
   }
 
   if (!stats) return <Loading />
@@ -77,6 +93,24 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table></div>
+        </>
+      )}
+
+      {kpis && kpis.length > 0 && (
+        <>
+          <h2 className="section">Performance par agent</h2>
+          <div className="grid c3">
+            {kpis.map((k) => (
+              <div className="card stat" key={k.name}>
+                <div className="k">{k.name}</div>
+                <div className="v" style={{ fontSize: 17 }}>{k.active} dossiers actifs</div>
+                <div className="row" style={{ gap: 6, marginTop: 6 }}>
+                  <span className="badge gold">{k.ready} à réviser</span>
+                  <span className="badge orange">{k.returned} retournés</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
 

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../auth/AuthContext'
 
 // Renders an official INVOICE or RECEIPT by id (immutable data from DB).
 // Print-ready via the browser (Ctrl+P) — @media print hides chrome.
 export default function InvoiceView() {
   const { id } = useParams()
+  const { profile } = useAuth()
   const [doc, setDoc] = useState(null)
   const [kind, setKind] = useState(null)
 
@@ -38,6 +40,24 @@ export default function InvoiceView() {
   return (
     <>
       <div className="row no-print" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
+        {kind === 'invoice' && profile?.role === 'super_admin' && doc.status === 'issued' && (
+          <button className="btn ghost" onClick={async () => {
+            const v = prompt('Nouveau montant (MAD) — motif obligatoire ensuite :', doc.amount)
+            if (!v) return
+            const reason = prompt('Motif de l’ajustement (obligatoire, audité) :')
+            if (!reason?.trim()) return alert('Motif obligatoire.')
+            try {
+              await supabase.rpc('adjust_invoice_amount', {
+                p_invoice: id, p_amount: Number(v), p_reason: reason.trim(),
+              })
+              load()
+            } catch (ex) {
+              alert(ex.message === 'REASON_MANDATORY' ? 'Motif obligatoire.'
+                : ex.message === 'INVOICE_LOCKED_BY_PAYMENTS' ? 'Facture verrouillée : un paiement existe déjà.'
+                : ex.message)
+            }
+          }}>✎ Ajuster le montant</button>
+        )}
         <button className="btn primary" onClick={() => window.print()}>🖨 Imprimer / PDF</button>
       </div>
 
@@ -119,7 +139,7 @@ export default function InvoiceView() {
             {doc.agency.bank_account_holder && <> · Titulaire : {doc.agency.bank_account_holder}</>}<br />
             <strong>Espèces</strong> — paiement direct à l’agence {doc.agency.name}.
             Un reçu officiel numéroté sera délivré après vérification du directeur.
-            <br /><em>TVA non applicable / selon régime en vigueur — [à confirmer par la comptabilité].</em>
+            <br /><em>TVA non applicable.</em>
           </div>
         )}
         {kind === 'receipt' && (

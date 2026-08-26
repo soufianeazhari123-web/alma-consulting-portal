@@ -8,6 +8,19 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Q14 owner decision: hard 30-minute inactivity logout for everyone.
+  useEffect(() => {
+    let timer
+    const reset = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => { supabase.auth.signOut(); window.location.href = '/login' }, 30 * 60 * 1000)
+    }
+    const evts = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+    evts.forEach((e) => window.addEventListener(e, reset, { passive: true }))
+    reset()
+    return () => { clearTimeout(timer); evts.forEach((e) => window.removeEventListener(e, reset)) }
+  }, [])
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)

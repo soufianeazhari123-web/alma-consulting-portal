@@ -29,6 +29,7 @@ export default function Layout({ portal = false }) {
         { to: '/tasks', label: t('tasks'), show: true },
         { to: '/calendar', label: 'Calendrier', show: true },
         { to: '/payments', label: t('payments'), show: true },
+        { to: '/reports', label: t('reports'), show: isSA || isDir },
         { to: '/messages', label: t('messages'), show: true },
         { section: t('teamAgencies'), show: isSA || isDir },
         { to: '/team', label: isSA ? t('teamAgencies') : t('addStaff').replace('Ajouter un membre','Équipe'), show: isSA || isDir },

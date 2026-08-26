@@ -163,6 +163,7 @@ create table cases (
   program              text,
   study_level          text,
   intake               text,
+  intake_month         text check (intake_month in ('september','february')), -- Q16 structured cohort tag
   application_deadline date,
   stage                case_stage not null default 'draft',
   student_status       text,                            -- sanitized label shown to student
@@ -271,9 +272,9 @@ create table installment_rules (
 create table billing_sequences (
   agency_id   uuid not null references agencies(id),
   doc_type    text not null check (doc_type in ('INVOICE','RECEIPT')),
-  year        int  not null,
+  year        int  not null default extract(year from now())::int,  -- first-issue year (informational)
   last_number int  not null default 0,
-  primary key (agency_id, doc_type, year)
+  primary key (agency_id, doc_type)          -- Q10: continuous, never resets
 );
 
 -- ---------- INVOICES ----------
@@ -434,6 +435,7 @@ create table company_settings (
   package_total        numeric(12,2) not null default 20000.00,
   invoice_due_days     int not null default 15,
   reminder_days_before int not null default 7,
+  retention_years      int not null default 10,   -- Q11: files kept/anonymised after 10y
   updated_by           uuid references profiles(id),
   updated_at           timestamptz not null default now()
 );

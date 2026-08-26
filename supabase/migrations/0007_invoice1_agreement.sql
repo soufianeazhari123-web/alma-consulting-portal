@@ -48,12 +48,43 @@ begin
   ) values (
     next_billing_number(s.agency_id,'INVOICE',yr,'FAC'),
     s.agency_id, yr,
-    (select last_number from billing_sequences where agency_id=s.agency_id and doc_type='INVOICE' and year=yr),
+    (select last_number from billing_sequences where agency_id=s.agency_id and doc_type='INVOICE'),
     p_student, p_installment, amt, auth.uid(),
     current_date + (select invoice_due_days from company_settings where id)
   ) returning id into inv_id;
   return inv_id;
 end $$;
+
+-- Q4 owner decision: reminder policy = 7 days before due date + overdue.
+-- Staff review/approval REQUIRED before any reminder is actually sent.
+create or replace function draft_installment_reminders()
+returns int
+language plpgsql security definer set search_path = public as $$
+declare n int := 0; r record;
+begin
+  if not is_staff() then raise exception 'FORBIDDEN'; end if;
+  for r in
+    select i.id, i.number, i.due_date, s.email, s.preferred_language, s.full_name
+    from invoices i join students s on s.id = i.student_id
+    where i.status in ('issued','partially_paid')
+      and i.due_date <= current_date + interval '7 days'
+      and not exists (
+        select 1 from email_queue q
+        where q.event_key = 'billing.installment_reminder'
+          and q.payload->>'invoice_number' = i.number
+      )
+  loop
+    insert into email_queue (event_key, recipient, lang, payload, requires_approval, status)
+    values ('billing.installment_reminder', r.email, r.preferred_language,
+            jsonb_build_object('invoice_number', r.number, 'student_name', r.full_name,
+                               'due_date', r.due_date),
+            true, 'pending');
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+
+grant execute on function draft_installment_reminders() to authenticated;
 
 -- Trigger: recording the in-agency signed-agreement date issues invoice #1 once.
 create or replace function on_agreement_signed()

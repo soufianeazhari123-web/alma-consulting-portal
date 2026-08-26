@@ -32,6 +32,7 @@ export default function NewCaseModal({ student, onClose, onSaved }) {
       program: f.program || null,
       study_level: f.study_level || null,
       intake: f.intake || null,
+      intake_month: f.intake_month || null,
       application_deadline: f.application_deadline || null,
       created_by: null, // set to caller via default? keep simple
     }).select('id').single()
@@ -60,7 +61,14 @@ export default function NewCaseModal({ student, onClose, onSaved }) {
         <div className="grid c2">
           <Field label="Programme"><input name="program" /></Field>
           <Field label="Niveau"><input name="study_level" placeholder="Licence / Master / Doctorat" /></Field>
-          <Field label="Rentrée"><input name="intake" placeholder="ex: Septembre 2027" /></Field>
+          <Field label="Rentrée (libre)"><input name="intake" placeholder="ex: Septembre 2027" /></Field>
+          <Field label="Saison (cohorte)">
+            <select name="intake_month" defaultValue="">
+              <option value="">—</option>
+              <option value="september">Septembre</option>
+              <option value="february">Février</option>
+            </select>
+          </Field>
           <Field label="Date limite"><input type="date" name="application_deadline" /></Field>
         </div>
         <div className="row" style={{ justifyContent: 'flex-end' }}>

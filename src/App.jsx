@@ -1,5 +1,6 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -22,8 +23,31 @@ import Messages from './pages/Messages'
 import PortalHome from './pages/PortalHome'
 import PortalCase from './pages/PortalCase'
 import CalendarPage from './pages/Calendar'
+import Security from './pages/Security'
+import Reports from './pages/Reports'
 
-const STAFF_ROLES = ['super_admin', 'director', 'agent']
+// Q13: Super Admin + directors must hold an aal2 session (TOTP verified).
+function MfaGate({ children }) {
+  const { profile } = useAuth()
+  const needMfa = profile.role === 'super_admin' || profile.role === 'director'
+  const [checked, setChecked] = useState(!needMfa)
+  const [ok, setOk] = useState(!needMfa)
+
+  React.useEffect(() => {
+    if (!needMfa) return
+    let live = true
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then((lvl) => {
+      if (!live) return
+      setOk(lvl.data?.currentLevel === 'aal2')
+      setChecked(true)
+    })
+    return () => { live = false }
+  }, [needMfa])
+
+  if (!checked) return null
+  if (!ok) return <Navigate to="/security" replace />
+  return children
+}
 
 function Guard({ roles, children }) {
   const { profile, loading } = useAuth()
@@ -35,7 +59,13 @@ function Guard({ roles, children }) {
 
 function Home() {
   const { profile } = useAuth()
-  return <Navigate to={profile?.role === 'student' ? '/portal' : '/dashboard'} replace />
+  if (!profile) return <Navigate to="/login" replace />
+  return <Navigate to={profile.role === 'student' ? '/portal' : '/dashboard'} replace />
+}
+
+function Team() {
+  const { profile } = useAuth()
+  return profile.role === 'super_admin' ? <Agencies /> : <Staff />
 }
 
 export default function App() {
@@ -45,10 +75,16 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
-          <Route path="/" element={<Home />} />
+
+          {/* MFA enrollment / verification — reachable while aal1 */}
+          <Route element={<Guard><Security /></Guard>} path="/security" />
 
           {/* Staff area */}
-          <Route element={<Guard roles={['super_admin','director','agent']}><Layout /></Guard>}>
+          <Route element={
+            <Guard roles={['super_admin', 'director', 'agent']}>
+              <MfaGate><Layout /></MfaGate>
+            </Guard>
+          }>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/students" element={<Students />} />
             <Route path="/students/:id" element={<StudentDetail />} />
@@ -60,6 +96,7 @@ export default function App() {
             <Route path="/payments" element={<Payments />} />
             <Route path="/invoices/:id" element={<InvoiceView />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/audit" element={<Guard roles={['super_admin']}><Audit /></Guard>} />
             <Route path="/templates" element={<Guard roles={['super_admin']}><Templates /></Guard>} />
             <Route path="/settings" element={<SettingsPage />} />
@@ -72,15 +109,10 @@ export default function App() {
             <Route path="/portal/case/:id" element={<PortalCase />} />
           </Route>
 
+          <Route path="/" element={<Home />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   )
-}
-
-import AgenciesPage from './pages/Agencies'
-function Team() {
-  const { profile } = useAuth()
-  return profile.role === 'super_admin' ? <AgenciesPage /> : <Staff />
 }
