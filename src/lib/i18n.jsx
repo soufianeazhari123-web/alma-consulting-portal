@@ -206,7 +206,7 @@ const dict = {
     backToApps: '← Tous mes dossiers', agencyMsgBadge: 'Message de l’agence',
     dueOnP: 'échéance', noCaseAttached: 'Aucun dossier rattaché à ce compte.',
     installmentLabel: 'Tranche', approvedOnlyHint: 'Téléchargeable après approbation par l’agence',
-    trancheOf4: 'Tranche', installmentLabel: 'Tranche',
+    trancheOf4: 'Tranche',
 
     // Reports
     weeklyReport: 'Rapport hebdomadaire',
@@ -411,7 +411,7 @@ const dict = {
     backToApps: '← All my applications', agencyMsgBadge: 'Message from the agency',
     dueOnP: 'due', noCaseAttached: 'No application attached to this account.',
     installmentLabel: 'Installment', approvedOnlyHint: 'Downloadable once approved by the agency',
-    trancheOf4: 'Installment', installmentLabel: 'Installment',
+    trancheOf4: 'Installment',
 
     weeklyReport: 'Weekly report',
     reportPeriod: 'Report from {a} to {b}',
@@ -617,7 +617,6 @@ const dict = {
     backToApps: '← جميع ملفاتي', agencyMsgBadge: 'رسالة من الوكالة',
     dueOnP: 'الاستحقاق', noCaseAttached: 'لا ملف مرتبط بهذا الحساب.',
     installmentLabel: 'القسط', approvedOnlyHint: 'قابل للتنزيل بعد موافقة الوكالة',
-    installmentLabel: 'القسط',
 
     weeklyReport: 'التقرير الأسبوعي',
     reportPeriod: 'تقرير من {a} إلى {b}',
