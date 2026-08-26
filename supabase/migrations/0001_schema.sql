@@ -66,7 +66,8 @@ create table countries (
   code       text not null unique,                     -- LT, LV, EE…
   name_fr    text not null,
   name_en    text not null,
-  sort_order int not null default 0
+sort_order            int not null default 0,
+  created_at            timestamptz not null default now()
 );
 
 create table service_types (

@@ -129,6 +129,10 @@ table.tbl { width: 100%; border-collapse: collapse; background: var(--panel);
   .doc-sheet { border: none; box-shadow: none; }
 }
 
+/* Hide Netlify preview badge on custom domains */
+div[class*="netlify-badge"], div[id*="netlify-badge"],
+a[href*="netlify.com"] { display: none !important; }
+
 .doc-sheet { max-width: 720px; margin: 0 auto; background: #fff; padding: 34px 40px;
   border: 1px solid var(--line); border-radius: 8px; }
 .doc-head { display: flex; justify-content: space-between; border-bottom: 3px double var(--gold); padding-bottom: 14px; margin-bottom: 18px; }
