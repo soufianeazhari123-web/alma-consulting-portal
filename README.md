@@ -81,10 +81,24 @@ cp .env.example .env   # remplir avec URL + clé anon
 npm run dev
 ```
 
-## 7. À faire avant production (phases suivantes)
+## 7. Sauvegardes (décision propriétaire Q29)
+
+- **Quotidien** : activer les backups automatiques Supabase
+  (Database → Backups ; inclus selon le plan, rétention 7 jours).
+- **Mensuel manuel (recommandé au démarrage)** : exporter un dump complet :
+  ```bash
+  # une fois : npm i -g supabase
+  supabase db dump --db-url "$SUPABASE_DB_URL" -f backup-AAAA-MM-JJ.sql
+  ```
+  Conserver au moins 3 mois, hors du portable de travail.
+- **Documents étudiants** : bucket privé `case-documents` — procédure de
+  sauvegarde dédiée à scripter en phase 2.
+- Avant production : **tester une restauration** sur un projet Supabase jetable.
+- Migration PITR (~100 $/mois) possible plus tard sans changer le code.
+
+## 8. À faire avant production (phases suivantes)
 
 - [ ] Vérifier les checklists officielles pays par pays (sources datées, validation propriétaire)
 - [ ] Connecter le fournisseur email (file `email_queue` déjà prête)
 - [ ] Scan antivirus des uploads (API tierce)
-- [ ] MFA optionnelle (Supabase Auth TOTP) pour Super Admin/directeurs
-- [ ] Backups Supabase (Point-in-time recovery activable dans Settings → Database)
+- [ ] MFA : obligatoire SA + directeurs — fait ; l'activer aussi pour les agents plus tard si souhaité

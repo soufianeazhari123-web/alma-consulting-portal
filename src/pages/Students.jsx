@@ -14,6 +14,8 @@ export default function Students() {
   const [q, setQ] = useState('')
   const [add, setAdd] = useState(false)
 
+  const canArchive = ['director', 'super_admin'].includes(profile.role)
+
   useEffect(() => { load() }, [])
   async function load() {
     let query = supabase.from('students')
@@ -23,6 +25,14 @@ export default function Students() {
     if (q) query = query.or(`full_name.ilike.%${q}%,ref.ilike.%${q}%,passport_number.ilike.%${q}%`)
     const { data } = await query
     setRows(data ?? [])
+  }
+
+  // Q22 owner decision: directors + SA may archive a student (10-year retention keeps history)
+  async function archiveStudent(s) {
+    if (!confirm(t('archiveConfirm'))) return
+    const { error } = await supabase.from('students').update({ is_archived: true }).eq('id', s.id)
+    if (error) return alert(error.message)
+    load()
   }
 
   return (
@@ -51,15 +61,22 @@ export default function Students() {
           <thead><tr>
             <th>{t('ref')}</th><th>{t('fullName')}</th><th>{t('passportNum')}</th><th>{t('agency')}</th>
             <th>{t('agentCol')}</th><th>{t('passportExp')}</th>
+            {canArchive && <th className="no-print"></th>}
           </tr></thead>
           <tbody>{rows.map((s) => (
-            <tr key={s.id} className="clickable" onClick={() => nav(`/students/${s.id}`)}>
-              <td><strong>{s.ref}</strong></td>
-              <td>{s.full_name}</td>
-              <td>{s.passport_number || '—'}</td>
-              <td>{s.agency?.name}</td>
-              <td>{s.agent?.full_name ?? '—'}</td>
-              <td>{passportWarn(s.passport_expiry_date, t)}</td>
+            <tr key={s.id}>
+              <td className="clickable" onClick={() => nav(`/students/${s.id}`)}><strong>{s.ref}</strong></td>
+              <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{s.full_name}</td>
+              <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{s.passport_number || '—'}</td>
+              <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{s.agency?.name}</td>
+              <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{s.agent?.full_name ?? '—'}</td>
+              <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{passportWarn(s.passport_expiry_date, t)}</td>
+              {canArchive && (
+                <td className="no-print">
+                  <button className="btn ghost sm" title={t('archive')}
+                    onClick={(e) => { e.stopPropagation(); archiveStudent(s) }}>⏸</button>
+                </td>
+              )}
             </tr>
           ))}</tbody>
         </table></div>

@@ -97,7 +97,7 @@ export default function Staff() {
       )}
 
       {add && (
-        <Modal title={t('addStaff')} onClose={() => { setAdd(false); setResult(null) }}>
+        <Modal title={t('addMember')} onClose={() => { setAdd(false); setResult(null) }}>
           {result ? (
             <>
               <p><strong>{result.staff_code}</strong></p>
@@ -128,7 +128,7 @@ export default function Staff() {
               </Field>
               {err && <p className="err">{err}</p>}
               <div className="row" style={{ justifyContent: 'flex-end' }}>
-                <button type="button" className="btn ghost" onClick={() => setAdd(false)}>{t('cancel')}</button>
+                <button type="button" className="btn ghost" onClick={() => { setAdd(false); setResult(null) }}>{t('cancel')}</button>
                 <button className="btn primary">{t('save')}</button>
               </div>
             </form>

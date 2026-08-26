@@ -1,7 +1,64 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
 import { useLang } from '../lib/i18n'
+
+// Q24: in-app notification bell, role-aware (counts via RLS-scoped queries)
+function Bell() {
+  const { profile } = useAuth()
+  const { t } = useLang()
+  const nav = useNavigate()
+  const [count, setCount] = useState(0)
+  const [target, setTarget] = useState('/dashboard')
+  const [label, setLabel] = useState('')
+
+  useEffect(() => {
+    let live = true
+    async function poll() {
+      try {
+        if (profile.role === 'super_admin') {
+          const { count } = await supabase.from('cases')
+            .select('id', { count: 'exact', head: true }).eq('stage', 'ready_for_review')
+          if (live) { setCount(count ?? 0); setTarget('/review-queue'); setLabel(t('notifReadyReview')) }
+        } else if (profile.role === 'director') {
+          const [{ count: pc }, { count: rc }] = await Promise.all([
+            supabase.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending_verification'),
+            supabase.from('cases').select('id', { count: 'exact', head: true }).eq('stage', 'ready_for_review'),
+          ])
+          if (live) {
+            const total = (pc ?? 0) + (rc ?? 0)
+            setCount(total)
+            setTarget(total && (pc ?? 0) >= (rc ?? 0) ? '/payments' : '/cases')
+            setLabel(`${pc ?? 0} ${t('notifPendingPay')} · ${rc ?? 0} ${t('notifReadyReview')}`)
+          }
+        } else if (profile.role === 'agent') {
+          const { count } = await supabase.from('cases')
+            .select('id', { count: 'exact', head: true })
+            .eq('agent_id', profile.id).eq('stage', 'changes_requested')
+          if (live) { setCount(count ?? 0); setTarget('/cases'); setLabel(t('notifReturned')) }
+        }
+      } catch { /* silent */ }
+    }
+    poll()
+    const iv = setInterval(poll, 60_000)
+    return () => { live = false; clearInterval(iv) }
+  }, [profile.role, profile.id])
+
+  if (!count) return null
+  return (
+    <button className="btn ghost sm" title={label}
+      onClick={() => nav(target)}
+      style={{ position: 'relative' }}>
+      🔔
+      <span style={{
+        position: 'absolute', top: -6, insetInlineEnd: -6,
+        background: '#b3261e', color: '#fff', borderRadius: 999,
+        fontSize: 10.5, fontWeight: 700, padding: '1px 5px',
+      }}>{count}</span>
+    </button>
+  )
+}
 
 export default function Layout({ portal = false }) {
   const { profile, signOut } = useAuth()
@@ -32,7 +89,7 @@ export default function Layout({ portal = false }) {
         { to: '/reports', label: t('reports'), show: isSA || isDir },
         { to: '/messages', label: t('messages'), show: true },
         { section: t('teamAgencies'), show: isSA || isDir },
-        { to: '/team', label: isSA ? t('teamAgencies') : t('addStaff').replace('Ajouter un membre','Équipe'), show: isSA || isDir },
+        { to: '/team', label: isSA ? t('teamAgencies') : t('team'), show: isSA || isDir },
         { to: '/templates', label: t('templates'), show: isSA },
         { to: '/audit', label: t('audit'), show: isSA },
         { to: '/settings', label: t('settings'), show: isSA },
@@ -74,7 +131,7 @@ export default function Layout({ portal = false }) {
       <main className="main" onClick={() => open && setOpen(false)}>
         <div className="topbar no-print">
           <button className="btn ghost sm menu-btn" onClick={(e) => { e.stopPropagation(); setOpen(!open) }}>☰</button>
-          <div />
+          {!portal && <Bell />}
         </div>
         <Outlet />
       </main>

@@ -42,9 +42,14 @@ export default function Agencies() {
     load()
   }
 
-  // SA right #2: hard delete — only when the agency has no dependent rows
+  // SA right #2: hard delete — typed DELETE + only when agency has no dependents
   async function remove(a) {
     if (!confirm(t('deleteConfirm'))) return
+    const answer = prompt(t('typeDelete'))
+    if (answer?.trim().toUpperCase() !== 'DELETE') {
+      alert(t('reasonRequiredAlert'))
+      return
+    }
 
     // Pre-check dependents for a friendly message (server FK still guards)
     const [st, pr, ca] = await Promise.all([

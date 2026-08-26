@@ -61,6 +61,7 @@ const dict = {
     refusalHistory: 'Antécédents de refus de visa (le cas échéant)',
     agreementDate: 'Convention signée en agence — date',
     consentAutoNote: 'Le consentement privé est enregistré automatiquement à la création. La convention de service est signée uniquement en agence.',
+    archiveStudentConfirm: 'Archiver cet étudiant ? Il disparaîtra des listes actives (historique conservé 10 ans).',
     identity: 'Identité', bornOn: 'Né(e) le', contact: 'Contact',
     agreementSigned: 'Convention signée', signedInAgencyOn: '✓ en agence le',
     notSigned: 'non signée', finances: 'Finances', invoiced: 'Facturé',
@@ -218,6 +219,9 @@ const dict = {
 
     // Misc
     hours: 'h', mondayShort: 'Lun',
+    typeDelete: 'Tapez DELETE pour confirmer :',
+    notifReadyReview: 'dossier(s) à réviser', notifReturned: 'dossier(s) retourné(s)',
+    notifPendingPay: 'paiement(s) à vérifier',
   },
 
   /* ================= ENGLISH ================= */
@@ -275,6 +279,7 @@ const dict = {
     refusalHistory: 'Previous visa refusals (if any)',
     agreementDate: 'Agreement signed in agency — date',
     consentAutoNote: 'Privacy consent is recorded automatically on creation. The service agreement is signed in the agency only.',
+    archiveStudentConfirm: 'Archive this student? They will disappear from active lists (history kept for 10 years).',
     identity: 'Identity', bornOn: 'Born on', contact: 'Contact',
     agreementSigned: 'Agreement signed', signedInAgencyOn: '✓ in agency on',
     notSigned: 'not signed', finances: 'Finances', invoiced: 'Invoiced',
@@ -416,6 +421,10 @@ const dict = {
     repByStage: 'Applications by stage', repAwaitingYou: 'Waiting for your review',
     sinceOn: 'since',
 
+    typeDelete: 'Type DELETE to confirm:',
+    notifReadyReview: 'case(s) to review', notifReturned: 'case(s) returned to you',
+    notifPendingPay: 'payment(s) awaiting verification',
+
     hours: 'h',
   },
 
@@ -474,6 +483,10 @@ const dict = {
     refusalHistory: 'رفوض تأشيرة سابقة (إن وجدت)',
     agreementDate: 'الاتفاقية الموقعة بالوكالة — التاريخ',
     consentAutoNote: 'يُسجَّل موافقة الخصوصية تلقائيا عند الإنشاء. تُوقَّع اتفاقية الخدمة داخل الوكالة فقط.',
+    archiveStudentConfirm: 'أرشفة هذا الطالب؟ سيختفي من القوائم النشطة (يبقى السجل 10 سنوات).',
+    typeDelete: 'اكتب DELETE للتأكيد:',
+    notifReadyReview: 'ملف(ات) بانتظار المراجعة', notifReturned: 'ملف(ات) مرتجعة إليك',
+    notifPendingPay: 'دفعة(ات) بانتظار التوثيق',
     identity: 'الهوية', bornOn: 'مولود(ة) في', contact: 'التواصل',
     agreementSigned: 'تم توقيع الاتفاقية', signedInAgencyOn: '✓ بالوكالة في',
     notSigned: 'غير موقعة', finances: 'المالية', invoiced: 'المفوتر',
