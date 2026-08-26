@@ -36,15 +36,17 @@ function MfaGate({ children }) {
   React.useEffect(() => {
     if (!needMfa) return
     let live = true
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then((lvl) => {
-      if (!live) return
-      setOk(lvl.data?.currentLevel === 'aal2')
-      setChecked(true)
-    })
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      .then((lvl) => {
+        if (!live) return
+        setOk(lvl.data?.currentLevel === 'aal2')
+        setChecked(true)
+      })
+      .catch(() => { if (live) { setOk(true); setChecked(true) } })
     return () => { live = false }
   }, [needMfa])
 
-  if (!checked) return null
+  if (!checked) return <div className="hint" style={{padding:40}}>Vérification sécurité…</div>
   if (!ok) return <Navigate to="/security" replace />
   return children
 }
