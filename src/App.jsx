@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -33,7 +33,7 @@ function MfaGate({ children }) {
   const [checked, setChecked] = useState(!needMfa)
   const [ok, setOk] = useState(!needMfa)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!needMfa) return
     let live = true
     supabase.auth.mfa.getAuthenticatorAssuranceLevel()
