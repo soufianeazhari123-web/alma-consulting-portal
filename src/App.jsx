@@ -78,7 +78,7 @@ function Home() {
 
 function Team() {
   const { profile } = useAuth()
-  return profile.role === 'super_admin' ? <Agencies /> : <Staff />
+  return profile.role === 'super_admin' ? <Staff /> : <Staff />
 }
 
 export default function App() {
@@ -113,7 +113,8 @@ export default function App() {
             <Route path="/audit" element={<Guard roles={['super_admin']}><Audit /></Guard>} />
             <Route path="/templates" element={<Guard roles={['super_admin']}><Templates /></Guard>} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/team" element={<Team />} />
+            <Route path="/team" element={<Guard roles={['super_admin','director']}><Staff /></Guard>} />
+            <Route path="/agencies" element={<Guard roles={['super_admin']}><Agencies /></Guard>} />
           </Route>
 
           {/* Student portal */}

@@ -89,7 +89,8 @@ export default function Layout({ portal = false }) {
         { to: '/reports', label: t('reports'), show: isSA || isDir },
         { to: '/messages', label: t('messages'), show: true },
         { section: t('teamAgencies'), show: isSA || isDir },
-        { to: '/team', label: isSA ? t('teamAgencies') : t('team'), show: isSA || isDir },
+        { to: '/agencies', label: lang === 'fr' ? 'Agences' : lang === 'ar' ? 'الوكالات' : 'Agencies', show: isSA },
+        { to: '/team', label: t('team'), show: isSA || isDir },
         { to: '/templates', label: t('templates'), show: isSA },
         { to: '/audit', label: t('audit'), show: isSA },
         { to: '/settings', label: t('settings'), show: isSA },
@@ -131,7 +132,13 @@ export default function Layout({ portal = false }) {
       <main className="main" onClick={() => open && setOpen(false)}>
         <div className="topbar no-print">
           <button className="btn ghost sm menu-btn" onClick={(e) => { e.stopPropagation(); setOpen(!open) }}>☰</button>
-          {!portal && <Bell />}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn ghost sm" title="Changer de langue / Change language / تغيير اللغة"
+              onClick={() => { const order = ['fr','en','ar']; setLang(order[(order.indexOf(lang)+1)%order.length]) }}>
+              🌐 {lang.toUpperCase()}
+            </button>
+            {!portal && <Bell />}
+          </div>
         </div>
         <Outlet />
       </main>
