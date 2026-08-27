@@ -5,10 +5,9 @@ const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const TOKEN = process.env.FIX_TOKEN || 'ALMA_FIX_2026'
 
-const json = (code, body) => ({
-  statusCode: code,
+const json = (code, body) => new Response(JSON.stringify(body), {
+  status: code,
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  body: JSON.stringify(body),
 })
 
 export default async (req) => {
