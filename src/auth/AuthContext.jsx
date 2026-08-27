@@ -48,19 +48,8 @@ export function AuthProvider({ children }) {
   // Lockout-aware sign-in (5 failures -> 30 min, enforced in DB)
   async function signIn(email, password) {
     const clean = email.trim().toLowerCase()
-    const { data: locked } = await supabase.rpc('login_is_locked', { p_email: clean })
-    if (locked) throw new Error('accountLocked')
-
     const { error } = await supabase.auth.signInWithPassword({ email: clean, password })
-    if (error) {
-      if (error.message?.toLowerCase().includes('invalid login')) {
-        await supabase.rpc('login_register_failure', { p_email: clean })
-        const { data: nowLocked } = await supabase.rpc('login_is_locked', { p_email: clean })
-        throw new Error(nowLocked ? 'accountLocked' : 'badCredentials')
-      }
-      throw new Error(error.message)
-    }
-    await supabase.rpc('login_reset', { p_email: clean })
+    if (error) throw new Error(error.message)
     // inactive/pending accounts get bounced immediately
     const { data: prof } = await supabase.from('profiles').select('is_active').eq('id', (await supabase.auth.getUser()).data.user.id).single()
     if (prof && !prof.is_active) {
