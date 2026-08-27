@@ -4,7 +4,6 @@ import { supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
-import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
 import Agencies from './pages/Agencies'
 import Staff from './pages/Staff'
@@ -87,7 +86,6 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/setup" element={<Setup />} />
 
           {/* MFA enrollment / verification — reachable while aal1 */}
           <Route element={<Guard><Security /></Guard>} path="/security" />
