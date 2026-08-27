@@ -14,7 +14,7 @@ export default async (req) => {
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const log = (m) => { document.getElementById('log').textContent += m + "\\n"; console.log(m) }
-const supabase = createClient(${JSON.stringify(SB_URL)}, ${JSON.stringify(ANON)})
+const supabase = createClient(${JSON.stringify(SB_URL)}, ${JSON.stringify(ANON)}, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } })
 log('Tentative connexion…')
 const { data, error } = await supabase.auth.signInWithPassword({ email: 'info@almaconsulting.lt', password: 'Alma2026!!Secure' })
 if (error) { log('Erreur signIn: ' + error.message); document.body.style.background='#fee' }

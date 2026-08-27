@@ -70,7 +70,8 @@ function Guard({ roles, children }) {
 }
 
 function Home() {
-  const { profile } = useAuth()
+  const { profile, loading } = useAuth()
+  if (loading) return <div className="main"><p>…</p></div>
   if (!profile) return <Navigate to="/login" replace />
   return <Navigate to={profile.role === 'student' ? '/portal' : '/dashboard'} replace />
 }
