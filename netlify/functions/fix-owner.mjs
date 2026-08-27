@@ -1,7 +1,7 @@
 // One-time owner password fix (token-protected). Uses service role key.
 import { createClient } from '@supabase/supabase-js'
 
-const URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const TOKEN = process.env.FIX_TOKEN || 'ALMA_FIX_2026'
 
@@ -15,7 +15,7 @@ export default async (req) => {
   const u = new URL(req.url)
   if (u.searchParams.get('token') !== TOKEN) return json(403, { error: 'forbidden' })
 
-  const admin = createClient(URL, KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+  const admin = createClient(SB_URL, KEY, { auth: { autoRefreshToken: false, persistSession: false } })
   const email = 'info@almaconsulting.lt'
   const password = 'Alma2026!!Secure'
 
