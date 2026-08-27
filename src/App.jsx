@@ -27,18 +27,28 @@ import Security from './pages/Security'
 import Reports from './pages/Reports'
 
 // Q13: Super Admin + directors must hold an aal2 session (TOTP verified).
+// If no TOTP factor is enrolled, access is allowed (so Google/OAuth login works
+// without trapping the user in a redirect loop to /security).
 function MfaGate({ children }) {
   const { profile } = useAuth()
   const needMfa = profile.role === 'super_admin' || profile.role === 'director'
   const [checked, setChecked] = useState(!needMfa)
   const [ok, setOk] = useState(!needMfa)
+  const [hasFactor, setHasFactor] = useState(false)
 
   useEffect(() => {
     if (!needMfa) return
     let live = true
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      .then((lvl) => {
+    supabase.auth.mfa.listFactors()
+      .then((mf) => {
         if (!live) return
+        const verified = (mf?.all ?? []).find((f) => f.status === 'verified')
+        setHasFactor(!!verified)
+        if (!verified) { setOk(true); setChecked(true); return }
+        return supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      })
+      .then((lvl) => {
+        if (!live || !lvl) return
         setOk(lvl.data?.currentLevel === 'aal2')
         setChecked(true)
       })
@@ -47,7 +57,7 @@ function MfaGate({ children }) {
   }, [needMfa])
 
   if (!checked) return <div className="hint" style={{padding:40}}>Vérification sécurité…</div>
-  if (!ok) return <Navigate to="/security" replace />
+  if (needMfa && !ok && hasFactor) return <Navigate to="/security" replace />
   return children
 }
 
