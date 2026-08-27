@@ -41,6 +41,14 @@ export default async (req) => {
     const { data: gl, error: glErr } = await admin.auth.admin.generateLink({ type: 'magiclink', email: 'info@almaconsulting.lt', options: { redirectTo: 'https://portal.almaconsulting.lt/' } })
     out.generateLink = glErr ? { error: glErr.message } : 'ok'
 
+    // Test password login with anon client
+    try {
+      const anon = createClient(SB_URL, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+      const { error: sErr } = await anon.auth.signInWithPassword({ email: 'info@almaconsulting.lt', password: 'Alma2026!!Secure' })
+      out.passwordTest = sErr ? { error: sErr.message } : 'ok (would sign in)'
+      if (!sErr) await anon.auth.signOut()
+    } catch (e) { out.passwordTest = { error: e.message } }
+
   } catch (e) {
     out.exception = e.message
   }
