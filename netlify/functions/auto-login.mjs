@@ -10,7 +10,7 @@ export default async (req) => {
 
   const html = `<!doctype html>
 <meta charset="utf-8"><title>Connexion…</title>
-<body style="font-family:system-ui;padding:40px">Connexion en cours…<pre id="log"></pre>
+<body style="font-family:system-ui;padding:40px"><h3>Connexion en cours…</h3><pre id="log" style="background:#f1f5f9;padding:12px;white-space:pre-wrap"></pre><p><a id="go" href="/" style="display:none;padding:10px 16px;background:#0f172a;color:#fff;border-radius:8px;text-decoration:none">Aller au tableau de bord →</a></p>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const log = (m) => { document.getElementById('log').textContent += m + "\\n"; console.log(m) }
@@ -22,8 +22,11 @@ else {
   log('signIn ok: ' + data.user.email)
   const { data: s } = await supabase.auth.getSession()
   log('session: ' + (s.session ? 'présente ('+s.session.user.email+')' : 'absente'))
-  log('Redirection vers / dans 1s…')
-  setTimeout(() => location.href = '/', 1200)
+  if (s.session) {
+    log('Cliquez sur le bouton ci-dessous si vous n\\'êtes pas redirigé.')
+    const a = document.getElementById('go'); a.style.display='inline-block'
+    setTimeout(() => location.href = '/', 1500)
+  }
 }
 <\/script>`
 
