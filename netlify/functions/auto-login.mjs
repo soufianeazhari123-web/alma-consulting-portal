@@ -10,13 +10,21 @@ export default async (req) => {
 
   const html = `<!doctype html>
 <meta charset="utf-8"><title>Connexion…</title>
-<body style="font-family:system-ui;padding:40px">Connexion en cours…
+<body style="font-family:system-ui;padding:40px">Connexion en cours…<pre id="log"></pre>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+const log = (m) => { document.getElementById('log').textContent += m + "\\n"; console.log(m) }
 const supabase = createClient(${JSON.stringify(SB_URL)}, ${JSON.stringify(ANON)})
-const { error } = await supabase.auth.signInWithPassword({ email: 'info@almaconsulting.lt', password: 'Alma2026!!Secure' })
-if (error) document.body.textContent = 'Erreur: ' + error.message
-else location.href = '/'
+log('Tentative connexion…')
+const { data, error } = await supabase.auth.signInWithPassword({ email: 'info@almaconsulting.lt', password: 'Alma2026!!Secure' })
+if (error) { log('Erreur signIn: ' + error.message); document.body.style.background='#fee' }
+else {
+  log('signIn ok: ' + data.user.email)
+  const { data: s } = await supabase.auth.getSession()
+  log('session: ' + (s.session ? 'présente ('+s.session.user.email+')' : 'absente'))
+  log('Redirection vers / dans 1s…')
+  setTimeout(() => location.href = '/', 1200)
+}
 <\/script>`
 
   return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
