@@ -26,19 +26,22 @@ export default function InvoiceView() {
     }
     const { data: i } = await supabase.from('invoices')
       .select('*, student:students(full_name,ref), agency:agencies(*)')
-      .eq('id', id).single()
+      .eq('id', id).maybeSingle()
     if (i) {
       const { data: cfg } = await supabase.from('company_settings').select('*').maybeSingle()
       const { data: rule } = await supabase.from('installment_rules').select('label_fr').eq('id', i.installment_no).maybeSingle()
-      const { data: pays } = await supabase.from('payments').select('amount,status,method').eq('invoice_id', i.id)
+      const { data: pays } = await supabase.from('payments').select('amount,status,method,created_at').eq('invoice_id', i.id)
       const verified = (pays ?? []).filter(p => p.status === 'verified')
       const paid = verified.reduce((s, p) => s + Number(p.amount), 0)
       const lastPay = (pays ?? []).sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0))[0]
       setDoc({ ...i, cfg, ruleLabel: rule?.label_fr, paid, lastMethod: lastPay?.method || null, hasVerified: verified.length>0 })
       setKind('invoice')
+    } else {
+      setDoc({ cfg: null }); setKind('notfound')
     }
   }
 
+  if (kind === 'notfound') return <p className="hint">Facture introuvable ou accès refusé.</p>
   if (!doc || !doc.cfg) return <p className="hint">…</p>
   const c = doc.cfg
   // Règle d'impression : étudiant/SA/directeur toujours, agent seulement après vérification directeur
