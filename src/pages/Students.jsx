@@ -107,9 +107,37 @@ function passportWarn(d, t) {
 }
 
 // Enrollment form — spec §5. Agreement signed IN AGENCY only.
+// Pays souhaités (multi) → checklist auto + création des dossiers liés.
 function AddStudent({ onClose, onSaved }) {
   const { profile } = useAuth()
   const { t } = useLang()
+  const [countries, setCountries] = useState(null)
+  const [services, setServices] = useState([])
+  const [selCountries, setSelCountries] = useState([])
+  const [serviceId, setServiceId] = useState('')
+  const [previews, setPreviews] = useState({})
+
+  useEffect(() => {
+    supabase.from('countries').select('id,name_fr,code').order('sort_order').then(({ data }) => setCountries(data ?? []))
+    supabase.from('service_types').select('id,label_fr,key').eq('is_active', true).then(({ data }) => setServices(data ?? []))
+  }, [])
+
+  useEffect(() => {
+    if (!selCountries.length || !serviceId) { setPreviews({}); return }
+    let live = true
+    ;(async () => {
+      const out = {}
+      for (const cid of selCountries) {
+        const { data: tpl } = await supabase.from('service_templates').select('id').eq('country_id', cid).eq('service_type_id', serviceId).eq('status', 'published').order('version', { ascending: false }).limit(1).maybeSingle()
+        if (!tpl) { out[cid] = []; continue }
+        const { data: items } = await supabase.from('document_templates').select('name_fr,is_required').eq('template_id', tpl.id).order('sort_order')
+        out[cid] = items ?? []
+      }
+      if (live) setPreviews(out)
+    })()
+    return () => { live = false }
+  }, [selCountries, serviceId])
+
   async function submit(e) {
     e.preventDefault()
     const f = Object.fromEntries(new FormData(e.target))
@@ -133,8 +161,17 @@ function AddStudent({ onClose, onSaved }) {
       main_agent_id: profile.role === 'agent' ? profile.id : (f.main_agent_id || null),
       created_by: profile.id,
     }
-    const { error } = await supabase.from('students').insert(payload)
+    const { data: created, error } = await supabase.from('students').insert(payload).select('id,ref').single()
     if (error) return alert(error.message)
+    // Crée un dossier par pays sélectionné (checklist auto via trigger)
+    for (const cid of selCountries) {
+      if (!serviceId) break
+      const { error: cErr } = await supabase.from('cases').insert({
+        student_id: created.id, agency_id: payload.agency_id, agent_id: payload.main_agent_id,
+        country_id: cid, service_type_id: serviceId,
+      })
+      if (cErr) console.error('case create', cErr.message)
+    }
     onSaved()
   }
   return (
@@ -166,6 +203,45 @@ function AddStudent({ onClose, onSaved }) {
         <div className="grid c2">
           <Field label={t('agreementDate')}><input type="date" name="agreement_signed_at" /></Field>
         </div>
+
+        <div className="card" style={{ background: '#fbfaf5', marginBottom: 12, border: '1px solid #e5e1d8' }}>
+          <strong style={{ fontSize: 13 }}>🌍 Pays souhaités — checklist auto</strong>
+          <div className="hint" style={{ marginBottom: 8 }}>Cochez un ou plusieurs pays, la checklist des documents s'affiche et les dossiers seront créés automatiquement.</div>
+          {!countries ? <Loading /> : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+              {countries.map((c) => (
+                <label key={c.id} style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#fff', border: '1px solid #e5e1d8', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={selCountries.includes(c.id)} onChange={(e) => setSelCountries(e.target.checked ? [...selCountries, c.id] : selCountries.filter(x => x !== c.id))} />
+                  {c.name_fr}
+                </label>
+              ))}
+            </div>
+          )}
+          {selCountries.length > 0 && (
+            <>
+              <Field label="Service (pour tous les pays cochés) *">
+                <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
+                  <option value="">— Choisissez —</option>
+                  {services.map((s) => <option key={s.id} value={s.id}>{s.label_fr}</option>)}
+                </select>
+              </Field>
+              {serviceId && Object.entries(previews).map(([cid, items]) => {
+                const cname = (countries || []).find(x => x.id === cid)?.name_fr || cid
+                return (
+                  <div key={cid} style={{ marginTop: 10 }}>
+                    <strong style={{ fontSize: 12 }}>{cname} — {items.length} doc(s)</strong>
+                    {items.length === 0 ? <p className="hint" style={{ margin: '4px 0' }}>{t('noTemplateWarn')}</p> : (
+                      <ul style={{ margin: '4px 0', paddingLeft: 18, fontSize: 12 }}>
+                        {items.map((it, i) => <li key={i}>{it.name_fr} {it.is_required ? <span className="badge red" style={{ fontSize: 10 }}>requis</span> : ''}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
+            </>
+          )}
+        </div>
+
         <p className="hint">{t('consentAutoNote')}</p>
         <SuperAdminAgencyPicker />
         <div className="row" style={{ justifyContent: 'flex-end' }}>
