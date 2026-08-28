@@ -54,7 +54,7 @@ export default async (req) => {
 
   try {
     if (action === 'invite_staff') {
-      const { email, full_name, role, agency_id } = body
+      const { email, full_name, role, agency_id, password: customPw } = body
       if (!['agent', 'director'].includes(role)) return json(400, { error: 'bad_role' })
       if (caller.role === 'director') {
         if (role !== 'agent') return json(403, { error: 'directors_create_agents_only' })
@@ -63,7 +63,7 @@ export default async (req) => {
       const { data: agency } = await admin.from('agencies').select('id').eq('id', agency_id).single()
       if (!agency) return json(404, { error: 'agency_not_found' })
 
-      const password = tempPassword()
+      const password = customPw && String(customPw).length >= 8 ? String(customPw) : tempPassword()
       const { data: created, error: cErr } = await admin.auth.admin.createUser({
         email, password, email_confirm: true,
         user_metadata: { full_name },

@@ -12,6 +12,7 @@ export default function Staff() {
   const [agencies, setAgencies] = useState([])
   const [add, setAdd] = useState(false)
   const [result, setResult] = useState(null)
+  const [resetUrl, setResetUrl] = useState(null)
   const [err, setErr] = useState(null)
   useEffect(() => { load() }, [])
   async function load() {
@@ -53,7 +54,7 @@ export default function Staff() {
   async function resetLink(row) {
     try {
       const r = await callAdminFn('reset_link', { profile_id: row.id })
-      prompt(t('resetPwdTitle'), r.reset_link)
+      setResetUrl(r.reset_link)
     } catch (ex) { alert(ex.message) }
   }
 
@@ -109,6 +110,7 @@ export default function Staff() {
             <form onSubmit={invite}>
               <Field label={t('fullName')}><input name="full_name" required /></Field>
               <Field label={t('email')}><input name="email" type="email" required /></Field>
+              <Field label={t('password')}><input name="password" type="password" minLength={8} placeholder={t('leaveEmptyAuto') || 'Laissez vide → auto-généré'} /></Field>
               <Field label={t('role')}>
                 <select name="role" required>
                   {canInviteRole.map((r) => <option key={r} value={r}>{t(r)}</option>)}
@@ -133,6 +135,16 @@ export default function Staff() {
               </div>
             </form>
           )}
+        </Modal>
+      )}
+      {resetUrl && (
+        <Modal title={t('resetPwdTitle')} onClose={() => setResetUrl(null)}>
+          <p className="hint">{t('resetLinkHint') || 'Lien à usage unique — envoyez-le au membre :'}</p>
+          <p style={{ wordBreak: 'break-all', background: '#f8fafc', padding: 10, borderRadius: 8, border: '1px solid #e2e8f0' }}><code style={{ fontSize: 12 }}>{resetUrl}</code></p>
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn ghost" onClick={() => navigator.clipboard.writeText(resetUrl)}>Copier</button>
+            <button className="btn primary" onClick={() => setResetUrl(null)}>{t('close')}</button>
+          </div>
         </Modal>
       )}
     </>
