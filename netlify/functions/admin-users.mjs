@@ -64,23 +64,36 @@ export default async (req) => {
       if (!agency) return json(404, { error: 'agency_not_found' })
 
       const password = customPw && String(customPw).length >= 8 ? String(customPw) : tempPassword()
-      const { data: created, error: cErr } = await admin.auth.admin.createUser({
-        email, password, email_confirm: true,
-        user_metadata: { full_name },
-      })
+      console.log('invite_staff: createUser', email, role)
+      let created, cErr
+      try {
+        const res = await Promise.race([
+          admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name } }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('createUser timeout 8s — vérifiez SMTP Supabase')), 8000))
+        ])
+        created = res.data; cErr = res.error
+      } catch (e) { cErr = e }
       if (cErr) {
-        if (String(cErr.message).toLowerCase().includes('already'))
-          return json(409, { error: 'email_exists' })
-        throw cErr
+        console.error('createUser failed', cErr.message)
+        if (String(cErr.message).toLowerCase().includes('already')) return json(409, { error: 'email_exists' })
+        return json(500, { error: 'server_error', detail: `createUser: ${cErr.message}` })
       }
-
-      const { data: code } = await admin.rpc('next_staff_code')
-      await admin.from('profiles').update({
+      console.log('createUser ok', created.user.id)
+      const { data: code, error: codeErr } = await admin.rpc('next_staff_code')
+      if (codeErr) console.error('next_staff_code err', codeErr.message)
+      // small delay to let handle_new_user trigger commit
+      await new Promise(r => setTimeout(r, 200))
+      const { error: uErr } = await admin.from('profiles').update({
         full_name, role, agency_id, is_active: true,
         staff_code: code || null,
       }).eq('id', created.user.id)
-
-      await audit('staff:invited', 'profiles', created.user.id, { role, agency_id, email })
+      if (uErr) {
+        console.error('profile update err', uErr.message)
+        await admin.auth.admin.deleteUser(created.user.id).catch(()=>{})
+        return json(500, { error: 'server_error', detail: `profile update: ${uErr.message}` })
+      }
+      // fire-and-forget audit (ne bloque pas la réponse)
+      audit('staff:invited', 'profiles', created.user.id, { role, agency_id, email }).catch(()=>{})
       return json(200, { profile_id: created.user.id, staff_code: code, temp_password: password })
     }
 
