@@ -175,8 +175,13 @@ function AddStudent({ onClose, onSaved }) {
     try { const r = await supabase.rpc('my_role'); myRole = r.data } catch {}
     try { const r = await supabase.rpc('my_agency_id'); myAgency = r.data } catch {}
     try { const r = await supabase.rpc('debug_students_insert', { p_agency_id: agencyId, p_main_agent_id: mainAgentId }); dbg = r.data; console.log('DEBUG RLS:', dbg, r.error) } catch (e) { console.log('debug rpc error', e) }
-    const { data: created, error } = await supabase.from('students').insert(payload).select('id,ref').single()
-    if (error) return alert(`${error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${freshRole}\nmy_role()=${myRole} my_agency_id()=${myAgency}\nDEBUG: ${dbg ? JSON.stringify(dbg) : 'no debug'}\nDétails: ${error.details || ''} ${error.hint || ''} Code: ${error.code}`)
+    const insertOnly = await supabase.from('students').insert(payload)
+    console.log('STEP1 insert only:', insertOnly.error)
+    if (insertOnly.error) return alert(`STEP1 FAILED: ${insertOnly.error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${freshRole}\nDEBUG: ${dbg ? JSON.stringify(dbg) : 'no debug'}\nCode: ${insertOnly.error.code}`)
+    const selOnly = await supabase.from('students').select('id,ref').eq('agency_id', agencyId).eq('main_agent_id', mainAgentId).order('created_at', { ascending: false }).limit(1).single()
+    console.log('STEP2 select after insert:', selOnly)
+    if (selOnly.error) return alert(`STEP2 (select) FAILED — insert a marché mais le select après échoue: ${selOnly.error.message}\n\nDétails: ${selOnly.error.details || ''} ${selOnly.error.hint || ''} Code: ${selOnly.error.code}`)
+    const created = selOnly.data
     // Crée un dossier par couple pays×service (checklist auto via trigger) — les deux services si cochés
     for (const cid of selCountries) {
       for (const sid of selServices) {
