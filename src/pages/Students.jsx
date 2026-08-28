@@ -114,7 +114,7 @@ function AddStudent({ onClose, onSaved }) {
   const [countries, setCountries] = useState(null)
   const [services, setServices] = useState([])
   const [selCountries, setSelCountries] = useState([])
-  const [serviceId, setServiceId] = useState('')
+  const [selServices, setSelServices] = useState([])
   const [previews, setPreviews] = useState({})
 
   useEffect(() => {
@@ -123,20 +123,23 @@ function AddStudent({ onClose, onSaved }) {
   }, [])
 
   useEffect(() => {
-    if (!selCountries.length || !serviceId) { setPreviews({}); return }
+    if (!selCountries.length || !selServices.length) { setPreviews({}); return }
     let live = true
     ;(async () => {
       const out = {}
       for (const cid of selCountries) {
-        const { data: tpl } = await supabase.from('service_templates').select('id').eq('country_id', cid).eq('service_type_id', serviceId).eq('status', 'published').order('version', { ascending: false }).limit(1).maybeSingle()
-        if (!tpl) { out[cid] = []; continue }
-        const { data: items } = await supabase.from('document_templates').select('name_fr,is_required').eq('template_id', tpl.id).order('sort_order')
-        out[cid] = items ?? []
+        for (const sid of selServices) {
+          const key = `${cid}:${sid}`
+          const { data: tpl } = await supabase.from('service_templates').select('id').eq('country_id', cid).eq('service_type_id', sid).eq('status', 'published').order('version', { ascending: false }).limit(1).maybeSingle()
+          if (!tpl) { out[key] = []; continue }
+          const { data: items } = await supabase.from('document_templates').select('name_fr,is_required').eq('template_id', tpl.id).order('sort_order')
+          out[key] = items ?? []
+        }
       }
       if (live) setPreviews(out)
     })()
     return () => { live = false }
-  }, [selCountries, serviceId])
+  }, [selCountries, selServices])
 
   async function submit(e) {
     e.preventDefault()
@@ -167,15 +170,16 @@ function AddStudent({ onClose, onSaved }) {
       created_by: profile.id,
     }
     const { data: created, error } = await supabase.from('students').insert(payload).select('id,ref').single()
-    if (error) return alert(`${error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${profile.role}`)
-    // Crée un dossier par pays sélectionné (checklist auto via trigger)
+    if (error) return alert(error.message)
+    // Crée un dossier par couple pays×service (checklist auto via trigger) — les deux services si cochés
     for (const cid of selCountries) {
-      if (!serviceId) break
-      const { error: cErr } = await supabase.from('cases').insert({
-        student_id: created.id, agency_id: payload.agency_id, agent_id: payload.main_agent_id,
-        country_id: cid, service_type_id: serviceId,
-      })
-      if (cErr) console.error('case create', cErr.message)
+      for (const sid of selServices) {
+        const { error: cErr } = await supabase.from('cases').insert({
+          student_id: created.id, agency_id: payload.agency_id, agent_id: payload.main_agent_id,
+          country_id: cid, service_type_id: sid,
+        })
+        if (cErr) console.error('case create', cErr.message)
+      }
     }
     onSaved()
   }
@@ -224,17 +228,25 @@ function AddStudent({ onClose, onSaved }) {
           )}
           {selCountries.length > 0 && (
             <>
-              <Field label="Service (pour tous les pays cochés) *">
-                <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-                  <option value="">— Choisissez —</option>
-                  {services.map((s) => <option key={s.id} value={s.id}>{s.label_fr}</option>)}
-                </select>
-              </Field>
-              {serviceId && Object.entries(previews).map(([cid, items]) => {
+              <div style={{ marginBottom: 8 }}>
+                <strong style={{ fontSize: 12 }}>Services (cochez un ou les deux — la plupart des étudiants veulent les deux)</strong>
+                <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                  {services.map((s) => (
+                    <label key={s.id} style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#fff', border: '1px solid #e5e1d8', padding: '6px 10px', borderRadius: 8, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selServices.includes(s.id)} onChange={(e) => setSelServices(e.target.checked ? [...selServices, s.id] : selServices.filter(x => x !== s.id))} />
+                      {s.label_fr}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {selServices.length > 0 && Object.entries(previews).map((key, idx) => {
+                const [cid, sid] = key.split(':')
                 const cname = (countries || []).find(x => x.id === cid)?.name_fr || cid
+                const sname = (services || []).find(x => x.id === sid)?.label_fr || sid
+                const items = previews[key] || []
                 return (
-                  <div key={cid} style={{ marginTop: 10 }}>
-                    <strong style={{ fontSize: 12 }}>{cname} — {items.length} doc(s)</strong>
+                  <div key={key} style={{ marginTop: 10 }}>
+                    <strong style={{ fontSize: 12 }}>{cname} · {sname} — {items.length} doc(s)</strong>
                     {items.length === 0 ? <p className="hint" style={{ margin: '4px 0' }}>{t('noTemplateWarn')}</p> : (
                       <ul style={{ margin: '4px 0', paddingLeft: 18, fontSize: 12 }}>
                         {items.map((it, i) => <li key={i}>{it.name_fr} {it.is_required ? <span className="badge red" style={{ fontSize: 10 }}>requis</span> : ''}</li>)}
