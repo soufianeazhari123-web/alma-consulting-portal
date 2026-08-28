@@ -46,11 +46,14 @@ export default async (req) => {
   try { body = JSON.parse(await req.text() || '{}') } catch { return json(400, { error: 'bad_json' }) }
   const { action } = body
 
-  const audit = (a, entity, entityId, meta) =>
-    admin.from('audit_logs').insert({
-      actor_id: callerId, actor_staff_code: caller.staff_code, actor_role: caller.role,
-      action: a, entity, entity_id: String(entityId ?? ''), meta: meta ?? {},
-    })
+  const audit = async (a, entity, entityId, meta) => {
+    try {
+      await admin.from('audit_logs').insert({
+        actor_id: callerId, actor_staff_code: caller.staff_code, actor_role: caller.role,
+        action: a, entity, entity_id: String(entityId ?? ''), meta: meta ?? {},
+      })
+    } catch (e) { console.error('audit failed', e?.message) }
+  }
 
   try {
     if (action === 'invite_staff') {
@@ -89,11 +92,10 @@ export default async (req) => {
       }).eq('id', created.user.id)
       if (uErr) {
         console.error('profile update err', uErr.message)
-        await admin.auth.admin.deleteUser(created.user.id).catch(()=>{})
+        try { await admin.auth.admin.deleteUser(created.user.id) } catch {}
         return json(500, { error: 'server_error', detail: `profile update: ${uErr.message}` })
       }
-      // fire-and-forget audit (ne bloque pas la réponse)
-      audit('staff:invited', 'profiles', created.user.id, { role, agency_id, email }).catch(()=>{})
+      await audit('staff:invited', 'profiles', created.user.id, { role, agency_id, email })
       return json(200, { profile_id: created.user.id, staff_code: code, temp_password: password })
     }
 
