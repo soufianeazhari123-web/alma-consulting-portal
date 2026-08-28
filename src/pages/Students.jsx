@@ -239,11 +239,10 @@ function AddStudent({ onClose, onSaved }) {
                   ))}
                 </div>
               </div>
-              {selServices.length > 0 && Object.entries(previews).map((key, idx) => {
+              {selServices.length > 0 && Object.entries(previews).map(([key, items]) => {
                 const [cid, sid] = key.split(':')
                 const cname = (countries || []).find(x => x.id === cid)?.name_fr || cid
                 const sname = (services || []).find(x => x.id === sid)?.label_fr || sid
-                const items = previews[key] || []
                 return (
                   <div key={key} style={{ marginTop: 10 }}>
                     <strong style={{ fontSize: 12 }}>{cname} · {sname} — {items.length} doc(s)</strong>
