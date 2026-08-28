@@ -144,11 +144,13 @@ function AddStudent({ onClose, onSaved }) {
   async function submit(e) {
     e.preventDefault()
     const f = Object.fromEntries(new FormData(e.target))
-    // Force les valeurs RLS depuis le profil connecté (évite agency_id null comme Staff.jsx)
-    const agencyId = profile.role === 'super_admin' ? f.agency_id : profile.agency_id
-    const mainAgentId = profile.role === 'agent' ? profile.id : (f.main_agent_id || null)
-    if (!agencyId) return alert('Agence manquante — reconnectez-vous.')
-    if (profile.role === 'agent' && !mainAgentId) return alert('Agent manquant.')
+    // Recharge profil frais pour éviter cache périmé
+    let freshAgencyId = profile.agency_id, freshId = profile.id, freshRole = profile.role
+    try { const { data: fr } = await supabase.from('profiles').select('agency_id,id,role').eq('id', profile.id).single(); if (fr) { freshAgencyId = fr.agency_id; freshId = fr.id; freshRole = fr.role } } catch {}
+    const agencyId = freshRole === 'super_admin' ? f.agency_id : freshAgencyId
+    const mainAgentId = freshRole === 'agent' ? freshId : (f.main_agent_id || null)
+    if (!agencyId) return alert(`Agence manquante (role=${freshRole}, agency_id=${String(freshAgencyId)}). Reconnectez-vous.`)
+    if (freshRole === 'agent' && !mainAgentId) return alert('Agent manquant.')
     const payload = {
       full_name: f.full_name,
       date_of_birth: f.date_of_birth || null,
@@ -167,10 +169,10 @@ function AddStudent({ onClose, onSaved }) {
       privacy_consent_at: new Date().toISOString(),
       agency_id: agencyId,
       main_agent_id: mainAgentId,
-      created_by: profile.id,
+      created_by: freshId,
     }
     const { data: created, error } = await supabase.from('students').insert(payload).select('id,ref').single()
-    if (error) return alert(error.message)
+    if (error) return alert(`${error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${freshRole}\nDétails: ${error.details || ''} ${error.hint || ''} Code: ${error.code}`)
     // Crée un dossier par couple pays×service (checklist auto via trigger) — les deux services si cochés
     for (const cid of selCountries) {
       for (const sid of selServices) {
