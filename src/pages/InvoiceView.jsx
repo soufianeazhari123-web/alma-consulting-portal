@@ -30,14 +30,22 @@ export default function InvoiceView() {
     if (i) {
       const { data: cfg } = await supabase.from('company_settings').select('*').maybeSingle()
       const { data: rule } = await supabase.from('installment_rules').select('label_fr').eq('id', i.installment_no).maybeSingle()
-      const { data: pays } = await supabase.from('payments').select('amount,status').eq('invoice_id', i.id).eq('status', 'verified')
-      setDoc({ ...i, cfg, ruleLabel: rule?.label_fr, paid: (pays ?? []).reduce((s, p) => s + Number(p.amount), 0) })
+      const { data: pays } = await supabase.from('payments').select('amount,status,method').eq('invoice_id', i.id)
+      const verified = (pays ?? []).filter(p => p.status === 'verified')
+      const paid = verified.reduce((s, p) => s + Number(p.amount), 0)
+      const lastPay = (pays ?? []).sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0))[0]
+      setDoc({ ...i, cfg, ruleLabel: rule?.label_fr, paid, lastMethod: lastPay?.method || null, hasVerified: verified.length>0 })
       setKind('invoice')
     }
   }
 
   if (!doc || !doc.cfg) return <p className="hint">…</p>
   const c = doc.cfg
+  // Règle d'impression : étudiant/SA/directeur toujours, agent seulement après vérification directeur
+  const isAgent = profile?.role === 'agent'
+  const hasVerified = kind === 'receipt' || !!doc.hasVerified
+  const canPrint = !isAgent || hasVerified
+  const intendedMethod = doc.payment?.method || doc.lastMethod || null
 
   return (
     <>
@@ -60,7 +68,11 @@ export default function InvoiceView() {
             }
           }}>{t('adjustBtn')}</button>
         )}
-        <button className="btn primary" onClick={() => window.print()}>{t('print')}</button>
+        {canPrint ? (
+          <button className="btn primary" onClick={() => window.print()}>{t('print')}</button>
+        ) : (
+          <span className="hint" style={{ padding: '8px 12px', background: '#fef3c7', borderRadius: 8, border: '1px solid #fde68a' }}>En attente de vérification du directeur</span>
+        )}
       </div>
 
       <div className="doc-sheet">
@@ -91,6 +103,9 @@ export default function InvoiceView() {
               <td>{doc.agency.name}{doc.agency.city ? ` — ${doc.agency.city}` : ''}</td></tr>
             <tr><td style={{ color: '#6b7280', padding: '3px 0' }}>Objet</td>
               <td>{doc.ruleLabel ?? `Tranche ${doc.invoice?.installment_no ?? ''}`} — forfait services d’études à l’étranger</td></tr>
+            {kind === 'invoice' && intendedMethod && (
+              <tr><td style={{ color: '#6b7280', padding: '3px 0' }}>Mode de paiement prévu</td><td>{intendedMethod === 'cash' ? 'Espèces' : 'Virement bancaire'} {hasVerified ? '— vérifié' : '— en attente'}</td></tr>
+            )}
             {kind === 'receipt' && <>
               <tr><td style={{ color: '#6b7280', padding: '3px 0' }}>Facture liée</td><td>{doc.invoice.number}</td></tr>
               <tr><td style={{ color: '#6b7280', padding: '3px 0' }}>Moyen de paiement</td>

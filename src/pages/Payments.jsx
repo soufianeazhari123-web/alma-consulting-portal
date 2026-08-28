@@ -18,6 +18,7 @@ export default function Payments() {
   const [rows, setRows] = useState(null)
   const [openInvoices, setOpenInvoices] = useState([])
   const [add, setAdd] = useState(false)
+  const [gen, setGen] = useState(false)
 
   useEffect(() => { load() }, [])
   async function load() {
@@ -71,6 +72,7 @@ export default function Payments() {
                 alert(`${n ?? 0} ${t('remindersDone')}`)
               } catch (ex) { alert(ex.message) }
             }}>{t('remindersBtn')}</button>
+          <button className="btn ghost" onClick={() => setGen(true)}>+ {t('generateInvoice') || 'Générer facture'}</button>
           <button className="btn primary" disabled={openInvoices.length === 0}
             onClick={() => setAdd(true)}>{t('recordPayment')}</button>
         </div>
@@ -102,7 +104,50 @@ export default function Payments() {
       </table></div>
 
       {add && <RecordPayment invoices={openInvoices} onClose={() => { setAdd(false); load() }} />}
+      {gen && <GenerateInvoice onClose={() => { setGen(false); load() }} />}
     </>
+  )
+}
+
+function GenerateInvoice({ onClose }) {
+  const { t } = useLang()
+  const [students, setStudents] = useState([])
+  const [studentId, setStudentId] = useState('')
+  const [installment, setInstallment] = useState('1')
+  useEffect(() => { supabase.from('students').select('id,full_name,ref').eq('is_archived', false).order('full_name').limit(100).then(({ data }) => setStudents(data ?? [])) }, [])
+  async function submit(e) {
+    e.preventDefault()
+    try {
+      const { data: invId, error } = await supabase.rpc('issue_invoice_for_student', { p_student: studentId, p_installment: Number(installment) })
+      if (error) throw error
+      alert(`${t('invoiceGenerated') || 'Facture générée'}: ${invId}`)
+      onClose()
+    } catch (ex) { alert(ex.message) }
+  }
+  return (
+    <Modal title={t('generateInvoice') || 'Générer une facture'} onClose={onClose}>
+      <form onSubmit={submit}>
+        <Field label={`${t('students')} *`}>
+          <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required>
+            <option value="">—</option>
+            {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.ref})</option>)}
+          </select>
+        </Field>
+        <Field label="Tranche *">
+          <select value={installment} onChange={(e) => setInstallment(e.target.value)} required>
+            <option value="1">Tranche 1 — Inscription</option>
+            <option value="2">Tranche 2 — Université</option>
+            <option value="3">Tranche 3 — Visa/TRP</option>
+            <option value="4">Tranche 4 — Rendez-vous</option>
+          </select>
+        </Field>
+        <p className="hint">{t('receiptAfterVerify')}</p>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn ghost" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn primary">{t('save')}</button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
