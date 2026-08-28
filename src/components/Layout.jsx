@@ -121,10 +121,10 @@ export default function Layout({ portal = false }) {
             {t('signOut')}
           </button>{' '}
           <button className="linklike" onClick={() => {
-            const order = ['fr', 'en', 'ar']
+            const order = ['fr', 'en']
             setLang(order[(order.indexOf(lang) + 1) % order.length])
           }}>
-            {lang === 'fr' ? 'EN' : lang === 'en' ? 'AR' : 'FR'}
+            {lang === 'fr' ? 'EN' : 'FR'}
           </button>
         </div>
       </aside>
@@ -133,8 +133,8 @@ export default function Layout({ portal = false }) {
         <div className="topbar no-print">
           <button className="btn ghost sm menu-btn" onClick={(e) => { e.stopPropagation(); setOpen(!open) }}>☰</button>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn ghost sm" title="Changer de langue / Change language / تغيير اللغة"
-              onClick={() => { const order = ['fr','en','ar']; setLang(order[(order.indexOf(lang)+1)%order.length]) }}>
+            <button className="btn ghost sm" title="Changer de langue / Change language"
+              onClick={() => { const order = ['fr','en']; setLang(order[(order.indexOf(lang)+1)%order.length]) }}>
               🌐 {lang.toUpperCase()}
             </button>
             {!portal && <Bell />}

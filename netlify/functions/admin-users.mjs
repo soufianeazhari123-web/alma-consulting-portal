@@ -147,6 +147,49 @@ export default async (req) => {
       return json(200, { reset_link: link.properties?.action_link })
     }
 
+    if (action === 'delete_staff') {
+      const { profile_id } = body
+      if (!is_super_admin()) return json(403, { error: 'forbidden' })
+      if (profile_id === callerId) return json(403, { error: 'cannot_delete_self' })
+      const { data: target } = await admin.from('profiles').select('*').eq('id', profile_id).single()
+      if (!target) return json(404, { error: 'profile_not_found' })
+      if (target.role === 'super_admin') return json(403, { error: 'cannot_delete_owner' })
+      // Clean up references (service role bypasses RLS)
+      await admin.from('students').update({ main_agent_id: null }).eq('main_agent_id', profile_id)
+      await admin.from('cases').update({ agent_id: null }).eq('agent_id', profile_id)
+      await admin.from('tasks').update({ assignee_id: null }).eq('assignee_id', profile_id)
+      const { error: dErr } = await admin.auth.admin.deleteUser(profile_id)
+      if (dErr) throw dErr
+      await audit('staff:deleted', 'profiles', profile_id, { role: target.role, email: target.email })
+      return json(200, { ok: true })
+    }
+
+    if (action === 'delete_student') {
+      const { student_id } = body
+      if (!is_super_admin()) return json(403, { error: 'forbidden' })
+      const { data: st } = await admin.from('students').select('id, agency_id').eq('id', student_id).single()
+      if (!st) return json(404, { error: 'student_not_found' })
+      // Delete portal account if exists
+      const { data: portal } = await admin.from('profiles').select('id').eq('student_id', student_id).maybeSingle()
+      if (portal) await admin.auth.admin.deleteUser(portal.id)
+      // Delete related data (service role)
+      const { data: caseIds } = await admin.from('cases').select('id').eq('student_id', student_id)
+      const cids = (caseIds || []).map(c => c.id)
+      if (cids.length) {
+        await admin.from('case_documents').delete().in('case_id', cids)
+        await admin.from('case_checklist_items').delete().in('case_id', cids)
+        await admin.from('cases').delete().in('id', cids)
+      }
+      await admin.from('invoices').delete().eq('student_id', student_id)
+      await admin.from('payments').delete().eq('student_id', student_id)
+      await admin.from('messages').delete().eq('student_id', student_id)
+      await admin.from('internal_notes').delete().eq('student_id', student_id)
+      await admin.from('tasks').delete().eq('student_id', student_id)
+      await admin.from('students').delete().eq('id', student_id)
+      await audit('student:hard_deleted', 'students', student_id, {})
+      return json(200, { ok: true })
+    }
+
     return json(400, { error: 'unknown_action' })
   } catch (e) {
     console.error('admin-users error:', e.message)

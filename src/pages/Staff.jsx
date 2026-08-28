@@ -58,6 +58,16 @@ export default function Staff() {
     } catch (ex) { alert(ex.message) }
   }
 
+  async function removeStaff(row) {
+    if (!confirm(`${t('deleteConfirm')} ${row.full_name} (${row.email}) ?`)) return
+    const ans = prompt(t('typeDelete'))
+    if (ans?.trim().toUpperCase() !== 'DELETE') { alert(t('reasonRequiredAlert')); return }
+    try {
+      await callAdminFn('delete_staff', { profile_id: row.id })
+      load()
+    } catch (ex) { alert(ex.message) }
+  }
+
   if (!rows) return <Loading />
 
   const canInviteRole = isSA ? ['director','agent'] : ['agent']
@@ -91,6 +101,8 @@ export default function Staff() {
                   </button>}
                 {p.role !== 'super_admin' &&
                   <button className="btn ghost sm" title="Réinitialiser mot de passe" onClick={() => resetLink(p)}>🔑</button>}
+                {isSA && p.role !== 'super_admin' &&
+                  <button className="btn danger sm" title={t('deleteConfirm')} onClick={() => removeStaff(p)}>🗑</button>}
               </td>
             </tr>
           ))}</tbody>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, callAdminFn } from '../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
 import { useLang } from '../lib/i18n'
 import { Modal, Field, Loading, Empty } from '../components/ui'
@@ -15,6 +15,7 @@ export default function Students() {
   const [add, setAdd] = useState(false)
 
   const canArchive = ['director', 'super_admin'].includes(profile.role)
+  const isSA = profile.role === 'super_admin'
 
   useEffect(() => { load() }, [])
   async function load() {
@@ -33,6 +34,16 @@ export default function Students() {
     const { error } = await supabase.from('students').update({ is_archived: true }).eq('id', s.id)
     if (error) return alert(error.message)
     load()
+  }
+
+  async function deleteStudent(s) {
+    if (!confirm(`${t('deleteConfirm')} ${s.full_name} ?`)) return
+    const ans = prompt(t('typeDelete'))
+    if (ans?.trim().toUpperCase() !== 'DELETE') { alert(t('reasonRequiredAlert')); return }
+    try {
+      await callAdminFn('delete_student', { student_id: s.id })
+      load()
+    } catch (ex) { alert(ex.message) }
   }
 
   return (
@@ -61,7 +72,7 @@ export default function Students() {
           <thead><tr>
             <th>{t('ref')}</th><th>{t('fullName')}</th><th>{t('passportNum')}</th><th>{t('agency')}</th>
             <th>{t('agentCol')}</th><th>{t('passportExp')}</th>
-            {canArchive && <th className="no-print"></th>}
+            {(canArchive || isSA) && <th className="no-print"></th>}
           </tr></thead>
           <tbody>{rows.map((s) => (
             <tr key={s.id}>
@@ -71,10 +82,10 @@ export default function Students() {
               <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{s.agency?.name}</td>
               <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{s.agent?.full_name ?? '—'}</td>
               <td className="clickable" onClick={() => nav(`/students/${s.id}`)}>{passportWarn(s.passport_expiry_date, t)}</td>
-              {canArchive && (
+              {(canArchive || isSA) && (
                 <td className="no-print">
-                  <button className="btn ghost sm" title={t('archive')}
-                    onClick={(e) => { e.stopPropagation(); archiveStudent(s) }}>⏸</button>
+                  {canArchive && <button className="btn ghost sm" title={t('archive')} onClick={(e) => { e.stopPropagation(); archiveStudent(s) }}>⏸</button>}
+                  {isSA && <button className="btn danger sm" title={t('deleteConfirm')} onClick={(e) => { e.stopPropagation(); deleteStudent(s) }}>🗑</button>}
                 </td>
               )}
             </tr>
