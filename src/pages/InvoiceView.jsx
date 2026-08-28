@@ -53,7 +53,7 @@ export default function InvoiceView() {
   return (
     <>
       <div className="row no-print" style={{ justifyContent: 'flex-end', marginBottom: 12 }}>
-        {kind === 'invoice' && profile?.role === 'super_admin' && doc.status === 'issued' && (
+        {kind === 'invoice' && (profile?.role === 'super_admin' || profile?.role === 'director') && doc.status === 'issued' && (
           <button className="btn ghost" onClick={async () => {
             const v = prompt(t('newAmountPrompt'), doc.amount)
             if (!v) return
