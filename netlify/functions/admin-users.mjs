@@ -100,7 +100,7 @@ export default async (req) => {
     }
 
     if (action === 'invite_student') {
-      const { student_id, email } = body
+      const { student_id, email, password: customPw } = body
       const { data: st } = await admin.from('students').select('*').eq('id', student_id).single()
       if (!st) return json(404, { error: 'student_not_found' })
       if (caller.role === 'director' && st.agency_id !== caller.agency_id)
@@ -113,9 +113,10 @@ export default async (req) => {
       const existing = await admin.from('profiles').select('id').eq('student_id', student_id).maybeSingle()
       if (existing.data) return json(409, { error: 'portal_account_exists' })
 
-      const password = tempPassword()
+      const password = customPw && String(customPw).length >= 8 ? String(customPw) : tempPassword()
+      const portalEmail = `${String(st.ref).toLowerCase()}@alma.local`
       const { data: created, error: cErr } = await admin.auth.admin.createUser({
-        email: email || st.email, password, email_confirm: true,
+        email: portalEmail, password, email_confirm: true,
         user_metadata: { full_name: st.full_name },
       })
       if (cErr) {
@@ -127,8 +128,8 @@ export default async (req) => {
         full_name: st.full_name, role: 'student', student_id, is_active: true,
       }).eq('id', created.user.id)
 
-      await audit('student_portal:invited', 'students', student_id, { email: email || st.email })
-      return json(200, { profile_id: created.user.id, temp_password: password })
+      await audit('student_portal:invited', 'students', student_id, { email: portalEmail, ref: st.ref })
+      return json(200, { profile_id: created.user.id, temp_password: password, portal_email: portalEmail, ref: st.ref })
     }
 
     if (action === 'set_active') {

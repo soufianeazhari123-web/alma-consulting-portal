@@ -23,7 +23,10 @@ export default function Login() {
     e.preventDefault()
     setErr(null); setBusy(true)
     try {
-      await signIn(email, password)
+      let clean = email.trim()
+      if (!clean.includes('@')) clean = `${clean.toLowerCase()}@alma.local`
+      else clean = clean.toLowerCase()
+      await signIn(clean, password)
       const { data: prof } = await supabase.from('profiles').select('role,is_active').single()
       window.location.href = prof?.role === 'student' ? '/portal' : '/'
     } catch (ex) {
@@ -39,8 +42,8 @@ export default function Login() {
         <div className="auth-sub">{t('login')}</div>
         <form onSubmit={submit}>
           <div className="field">
-            <label htmlFor="email">{t('email')}</label>
-            <input id="email" type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label htmlFor="email">{t('email')} / Référence</label>
+            <input id="email" type="text" required autoComplete="username" placeholder="info@... ou ALMA-ST-00001" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="password">{t('password')}</label>

@@ -16,6 +16,8 @@ export default function StudentDetail() {
   const [invoices, setInvoices] = useState([])
   const [newCase, setNewCase] = useState(false)
   const [portalMsg, setPortalMsg] = useState(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [invitePassword, setInvitePassword] = useState('')
 
   useEffect(() => { load() }, [id])
   async function load() {
@@ -28,10 +30,12 @@ export default function StudentDetail() {
     setStudent(s); setCases(c ?? []); setInvoices(inv ?? [])
   }
 
-  async function invitePortal() {
+  async function invitePortal(e) {
+    if (e) e.preventDefault()
     try {
-      const r = await callAdminFn('invite_student', { student_id: id, email: student.email })
-      setPortalMsg(`${t('portalCreated')} ${r.temp_password}`)
+      const r = await callAdminFn('invite_student', { student_id: id, email: student.email, password: invitePassword })
+      setPortalMsg(`${t('portalCreated')} ${r.temp_password} — ${r.ref || student.ref} (${r.portal_email})`)
+      setInviteOpen(false); setInvitePassword('')
     } catch (ex) {
       setPortalMsg(
         ex.message === 'email_exists' ? t('emailTaken')
@@ -51,12 +55,27 @@ export default function StudentDetail() {
           <p className="hint">{student.ref} · {student.agency?.name} · {t('agentCol')} : {student.agent?.full_name ?? '—'}</p>
         </div>
         <div className="row">
-          <button className="btn ghost" onClick={invitePortal}>{t('activatePortal')}</button>
+          <button className="btn ghost" onClick={() => setInviteOpen(true)}>{t('activatePortal')}</button>
           <button className="btn primary" onClick={() => setNewCase(true)}>+ {t('newCase')}</button>
         </div>
       </div>
 
       {portalMsg && <div className="card" style={{ marginBottom: 14 }}><code>{portalMsg}</code></div>}
+
+      {inviteOpen && (
+        <Modal title={t('activatePortal')} onClose={() => setInviteOpen(false)}>
+          <form onSubmit={invitePortal}>
+            <Field label="Référence"><input value={student.ref} disabled /></Field>
+            <Field label={`${t('email')} (optionnel)`}><input value={student.email || ''} disabled /></Field>
+            <Field label={`${t('password')} *`}><input type="password" required minLength={8} value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="Min. 8 caractères — à donner à l'étudiant" /></Field>
+            <p className="hint">L'étudiant se connectera avec sa <b>référence</b> <code>{student.ref}</code> + ce mot de passe (ou son e-mail si renseigné).</p>
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="btn ghost" onClick={() => setInviteOpen(false)}>{t('cancel')}</button>
+              <button className="btn primary">{t('save')}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       <div className="grid c2">
         <div className="card">
