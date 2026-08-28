@@ -141,6 +141,11 @@ function AddStudent({ onClose, onSaved }) {
   async function submit(e) {
     e.preventDefault()
     const f = Object.fromEntries(new FormData(e.target))
+    // Force les valeurs RLS depuis le profil connecté (évite agency_id null comme Staff.jsx)
+    const agencyId = profile.role === 'super_admin' ? f.agency_id : profile.agency_id
+    const mainAgentId = profile.role === 'agent' ? profile.id : (f.main_agent_id || null)
+    if (!agencyId) return alert('Agence manquante — reconnectez-vous.')
+    if (profile.role === 'agent' && !mainAgentId) return alert('Agent manquant.')
     const payload = {
       full_name: f.full_name,
       date_of_birth: f.date_of_birth || null,
@@ -157,12 +162,12 @@ function AddStudent({ onClose, onSaved }) {
       visa_refusal_history: f.visa_refusal_history || null,
       agreement_signed_at: f.agreement_signed_at || null,
       privacy_consent_at: new Date().toISOString(),
-      agency_id: profile.role === 'super_admin' ? f.agency_id : profile.agency_id,
-      main_agent_id: profile.role === 'agent' ? profile.id : (f.main_agent_id || null),
+      agency_id: agencyId,
+      main_agent_id: mainAgentId,
       created_by: profile.id,
     }
     const { data: created, error } = await supabase.from('students').insert(payload).select('id,ref').single()
-    if (error) return alert(error.message)
+    if (error) return alert(`${error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${profile.role}`)
     // Crée un dossier par pays sélectionné (checklist auto via trigger)
     for (const cid of selCountries) {
       if (!serviceId) break
