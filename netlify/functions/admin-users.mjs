@@ -157,7 +157,7 @@ export default async (req) => {
       // Clean up references (service role bypasses RLS)
       await admin.from('students').update({ main_agent_id: null }).eq('main_agent_id', profile_id)
       await admin.from('cases').update({ agent_id: null }).eq('agent_id', profile_id)
-      await admin.from('tasks').update({ assignee_id: null }).eq('assignee_id', profile_id)
+      await admin.from('tasks').update({ assignee: null }).eq('assignee', profile_id)
       const { error: dErr } = await admin.auth.admin.deleteUser(profile_id)
       if (dErr) throw dErr
       await audit('staff:deleted', 'profiles', profile_id, { role: target.role, email: target.email })
