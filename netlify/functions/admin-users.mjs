@@ -149,19 +149,32 @@ export default async (req) => {
 
     if (action === 'delete_staff') {
       const { profile_id } = body
+      if (!profile_id) return json(400, { error: 'bad_request', detail: 'profile_id manquant' })
       if (!is_super_admin()) return json(403, { error: 'forbidden' })
-      if (profile_id === callerId) return json(403, { error: 'cannot_delete_self' })
-      const { data: target } = await admin.from('profiles').select('*').eq('id', profile_id).single()
-      if (!target) return json(404, { error: 'profile_not_found' })
-      if (target.role === 'super_admin') return json(403, { error: 'cannot_delete_owner' })
-      // Clean up references (service role bypasses RLS)
-      await admin.from('students').update({ main_agent_id: null }).eq('main_agent_id', profile_id)
-      await admin.from('cases').update({ agent_id: null }).eq('agent_id', profile_id)
-      await admin.from('tasks').update({ assignee: null }).eq('assignee', profile_id)
-      const { error: dErr } = await admin.auth.admin.deleteUser(profile_id)
-      if (dErr) throw dErr
-      await audit('staff:deleted', 'profiles', profile_id, { role: target.role, email: target.email })
-      return json(200, { ok: true })
+      if (profile_id === callerId) return json(403, { error: 'forbidden', detail: 'Impossible de se supprimer soi-même' })
+      const { data: target, error: tErr } = await admin.from('profiles').select('id, role, email').eq('id', profile_id).single()
+      if (tErr || !target) return json(404, { error: 'profile_not_found', detail: tErr?.message || 'Profil introuvable' })
+      if (target.role === 'super_admin') return json(403, { error: 'forbidden', detail: 'Impossible de supprimer le super_admin' })
+      try {
+        const steps = [
+          admin.from('students').update({ main_agent_id: null }).eq('main_agent_id', profile_id),
+          admin.from('students').update({ created_by: null }).eq('created_by', profile_id),
+          admin.from('cases').update({ agent_id: null }).eq('agent_id', profile_id),
+          admin.from('cases').update({ submission_owner: null }).eq('submission_owner', profile_id),
+          admin.from('tasks').update({ assignee: null }).eq('assignee', profile_id),
+          admin.from('tasks').update({ created_by: null }).eq('created_by', profile_id),
+        ]
+        for (let i = 0; i < steps.length; i++) {
+          const { error } = await steps[i]
+          if (error) return json(500, { error: 'server_error', detail: `Échec nullify étape ${i}: ${error.message} (code: ${error.code})` })
+        }
+        const { error: dErr } = await admin.auth.admin.deleteUser(profile_id)
+        if (dErr) return json(500, { error: 'server_error', detail: `deleteUser a échoué: ${dErr.message} (status: ${dErr.status})` })
+        await audit('staff:deleted', 'profiles', profile_id, { role: target.role, email: target.email })
+        return json(200, { ok: true })
+      } catch (e) {
+        return json(500, { error: 'server_error', detail: e?.message || String(e) })
+      }
     }
 
     if (action === 'delete_student') {

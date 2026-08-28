@@ -24,6 +24,11 @@ export async function callAdminFn(action, payload = {}) {
     body: JSON.stringify({ action, ...payload }),
   })
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(body.error || `http_${res.status}`)
+  if (!res.ok) {
+    const msg = body.detail ? `${body.error}: ${body.detail}` : (body.error || `http_${res.status}`)
+    const err = new Error(msg)
+    err.detail = body.detail
+    throw err
+  }
   return body
 }
