@@ -171,8 +171,11 @@ function AddStudent({ onClose, onSaved }) {
       main_agent_id: mainAgentId,
       created_by: freshId,
     }
+    let myRole = '?', myAgency = '?'
+    try { const r = await supabase.rpc('my_role'); myRole = r.data } catch {}
+    try { const r = await supabase.rpc('my_agency_id'); myAgency = r.data } catch {}
     const { data: created, error } = await supabase.from('students').insert(payload).select('id,ref').single()
-    if (error) return alert(`${error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${freshRole}\nDétails: ${error.details || ''} ${error.hint || ''} Code: ${error.code}`)
+    if (error) return alert(`${error.message}\n\nPayload: agency_id=${agencyId} main_agent_id=${mainAgentId} role=${freshRole}\nmy_role()=${myRole} my_agency_id()=${myAgency}\nDétails: ${error.details || ''} ${error.hint || ''} Code: ${error.code}`)
     // Crée un dossier par couple pays×service (checklist auto via trigger) — les deux services si cochés
     for (const cid of selCountries) {
       for (const sid of selServices) {
