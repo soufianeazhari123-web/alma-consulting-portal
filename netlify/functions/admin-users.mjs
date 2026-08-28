@@ -150,7 +150,7 @@ export default async (req) => {
     if (action === 'delete_staff') {
       const { profile_id } = body
       if (!profile_id) return json(400, { error: 'bad_request', detail: 'profile_id manquant' })
-      if (!is_super_admin()) return json(403, { error: 'forbidden' })
+      if (caller.role !== 'super_admin') return json(403, { error: 'forbidden' })
       if (profile_id === callerId) return json(403, { error: 'forbidden', detail: 'Impossible de se supprimer soi-même' })
       const { data: target, error: tErr } = await admin.from('profiles').select('id, role, email').eq('id', profile_id).single()
       if (tErr || !target) return json(404, { error: 'profile_not_found', detail: tErr?.message || 'Profil introuvable' })
@@ -179,7 +179,7 @@ export default async (req) => {
 
     if (action === 'delete_student') {
       const { student_id } = body
-      if (!is_super_admin()) return json(403, { error: 'forbidden' })
+      if (caller.role !== 'super_admin') return json(403, { error: 'forbidden' })
       const { data: st } = await admin.from('students').select('id, agency_id').eq('id', student_id).single()
       if (!st) return json(404, { error: 'student_not_found' })
       // Delete portal account if exists
