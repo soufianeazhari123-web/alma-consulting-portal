@@ -136,7 +136,7 @@ export default function Staff() {
                 ) : (
                   <>
                     <input value={profile.agency?.name ?? ''} disabled />
-                    <input type="hidden" name="agency_id" value={profile.agency?.id ?? ''} />
+                    <input type="hidden" name="agency_id" value={profile.agency_id ?? ''} />
                   </>
                 )}
               </Field>
