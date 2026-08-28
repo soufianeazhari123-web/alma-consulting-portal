@@ -38,7 +38,7 @@ export default async (req) => {
   const callerId = userData.user.id
 
   const { data: caller } = await admin.from('profiles').select('*').eq('id', callerId).single()
-  if (!caller || !caller.is_active || !['super_admin', 'director'].includes(caller.role)) {
+  if (!caller || !caller.is_active || !['super_admin', 'director', 'agent'].includes(caller.role)) {
     return json(403, { error: 'forbidden' })
   }
 
@@ -58,6 +58,7 @@ export default async (req) => {
   try {
     if (action === 'invite_staff') {
       const { email, full_name, role, agency_id, password: customPw } = body
+      if (!['super_admin', 'director'].includes(caller.role)) return json(403, { error: 'forbidden' })
       if (!['agent', 'director'].includes(role)) return json(400, { error: 'bad_role' })
       if (caller.role === 'director') {
         if (role !== 'agent') return json(403, { error: 'directors_create_agents_only' })
@@ -134,6 +135,7 @@ export default async (req) => {
 
     if (action === 'set_active') {
       const { profile_id, active } = body
+      if (!['super_admin', 'director'].includes(caller.role)) return json(403, { error: 'forbidden' })
       const { data: target } = await admin.from('profiles').select('*').eq('id', profile_id).single()
       if (!target) return json(404, { error: 'profile_not_found' })
       if (target.role === 'super_admin') return json(403, { error: 'cannot_deactivate_owner' })
@@ -149,6 +151,7 @@ export default async (req) => {
 
     if (action === 'reset_link') {
       const { profile_id } = body
+      if (!['super_admin', 'director'].includes(caller.role)) return json(403, { error: 'forbidden' })
       const { data: target } = await admin.from('profiles').select('*').eq('id', profile_id).single()
       if (!target) return json(404, { error: 'profile_not_found' })
       if (caller.role === 'director' &&
